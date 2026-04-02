@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路径格式转换器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-card: #f1f5f9;
+            --bg-input: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.15);
+            --warning: #f59e0b;
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .background-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent), #a855f7);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 32px var(--accent-glow);
+        }
+
+        .logo-icon svg {
+            width: 28px;
+            height: 28px;
+            color: white;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1e293b 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-top: 8px;
+        }
+
+        .settings-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 24px;
+            padding: 16px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .setting-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+
+        select {
+            appearance: none;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 36px 8px 12px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: var(--transition);
+            min-width: 160px;
+        }
+
+        select:hover {
+            border-color: var(--accent);
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .select-wrapper::after {
+            content: '';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid var(--text-secondary);
+            pointer-events: none;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 16px;
+            color: var(--text-primary);
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            resize: vertical;
+            transition: var(--transition);
+        }
+
+        textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        textarea:hover {
+            border-color: var(--accent);
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+        }
+
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .output-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .output-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .output-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .output-card:hover {
+            border-color: rgba(99, 102, 241, 0.5);
+            transform: translateX(4px);
+        }
+
+        .output-card:hover::before {
+            opacity: 1;
+        }
+
+        .output-card.windows::before {
+            background: #00a4ef;
+        }
+
+        .output-card.linux::before {
+            background: #fcc624;
+        }
+
+        .output-card.macos::before {
+            background: #a3aaae;
+        }
+
+        .output-card.git::before {
+            background: #f05032;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .card-icon.windows {
+            background: rgba(0, 164, 239, 0.15);
+            color: #00a4ef;
+        }
+
+        .card-icon.linux {
+            background: rgba(252, 198, 36, 0.15);
+            color: #fcc624;
+        }
+
+        .card-icon.macos {
+            background: rgba(163, 170, 174, 0.15);
+            color: #a3aaae;
+        }
+
+        .card-icon.git {
+            background: rgba(240, 80, 50, 0.15);
+            color: #f05032;
+        }
+
+        .card-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .card-desc {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            margin-top: 2px;
+        }
+
+        .copy-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .copy-btn:hover {
+            border-color: var(--success);
+            color: var(--success);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .copy-btn.copied {
+            border-color: var(--success);
+            color: var(--success);
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .copy-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .output-value {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            color: var(--text-secondary);
+            background: var(--bg-input);
+            padding: 12px 16px;
+            border-radius: 8px;
+            word-break: break-all;
+            min-height: 48px;
+        }
+
+        .output-value.empty {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 14px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--success);
+            border-radius: var(--radius);
+            color: var(--success);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: var(--transition);
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .keyboard-hint {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 12px;
+            padding: 6px 12px;
+            background: var(--bg-card);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.7rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-grid"></div>
+    
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                        <polyline points="13 2 13 9 20 9"/>
+                    </svg>
+                </div>
+                <h1>路径格式转换器</h1>
+            </div>
+            <p class="subtitle">在不同操作系统路径格式之间轻松转换</p>
+        </header>
+
+        <div class="settings-bar">
+            <div class="setting-item">
+                <span class="setting-label">默认转换语言：</span>
+                <div class="select-wrapper">
+                    <select id="defaultLang">
+                        <option value="">不设置</option>
+                        <option value="windows">Windows</option>
+                        <option value="linux">Linux</option>
+                        <option value="macos">macOS</option>
+                        <option value="git">Git Bash</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <div class="section-title">输入路径</div>
+                <div class="input-wrapper">
+                    <textarea 
+                        id="pathInput" 
+                        placeholder="在此粘贴或输入路径，例如：&#10;C:\Users\Administrator\Documents&#10;/home/user/projects&#10;~/Desktop/file.txt"
+                        spellcheck="false"
+                    ></textarea>
+                </div>
+                <div class="input-actions">
+                    <button class="btn btn-primary" id="pasteBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                        </svg>
+                        粘贴
+                    </button>
+                    <button class="btn btn-secondary" id="clearBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                        清空
+                    </button>
+                </div>
+                <div class="keyboard-hint">
+                    <kbd>Ctrl</kbd> + <kbd>V</kbd> 粘贴后自动转换
+                </div>
+            </div>
+
+            <div class="output-section">
+                <div class="section-title">转换结果</div>
+
+                <div class="output-card windows">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon windows">Win</div>
+                            <div>
+                                <div class="card-name">Windows</div>
+                                <div class="card-desc">C:\Users\...</div>
+                            </div>
+                        </div>
+                        <button class="copy-btn" data-target="windows">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            复制
+                        </button>
+                    </div>
+                    <div class="output-value" id="windows">等待输入...</div>
+                </div>
+
+                <div class="output-card linux">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon linux">Lin</div>
+                            <div>
+                                <div class="card-name">Linux</div>
+                                <div class="card-desc">/home/user/...</div>
+                            </div>
+                        </div>
+                        <button class="copy-btn" data-target="linux">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            复制
+                        </button>
+                    </div>
+                    <div class="output-value" id="linux">等待输入...</div>
+                </div>
+
+                <div class="output-card macos">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon macos">Mac</div>
+                            <div>
+                                <div class="card-name">macOS</div>
+                                <div class="card-desc">/Users/...</div>
+                            </div>
+                        </div>
+                        <button class="copy-btn" data-target="macos">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            复制
+                        </button>
+                    </div>
+                    <div class="output-value" id="macos">等待输入...</div>
+                </div>
+
+                <div class="output-card git">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon git">Git</div>
+                            <div>
+                                <div class="card-name">Git Bash</div>
+                                <div class="card-desc">/c/Users/...</div>
+                            </div>
+                        </div>
+                        <button class="copy-btn" data-target="git">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            复制
+                        </button>
+                    </div>
+                    <div class="output-value" id="git">等待输入...</div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>路径格式转换器 - 支持 Windows、Linux、macOS 和 Git Bash 格式</p>
+        </footer>
+    </div>
+
+    <div class="toast" id="toast">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <span id="toastMessage">复制成功！</span>
+    </div>
+
+    <script>
+        const pathInput = document.getElementById('pathInput');
+        const defaultLangSelect = document.getElementById('defaultLang');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+
+        // 从localStorage加载默认语言设置
+        const savedDefaultLang = localStorage.getItem('pathConverter_defaultLang');
+        if (savedDefaultLang) {
+            defaultLangSelect.value = savedDefaultLang;
+        }
+
+        // 保存默认语言设置
+        defaultLangSelect.addEventListener('change', () => {
+            localStorage.setItem('pathConverter_defaultLang', defaultLangSelect.value);
+        });
+
+        // 显示toast提示
+        function showToast(message) {
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // 复制到剪贴板
+        async function copyToClipboard(text, button) {
+            try {
+                await navigator.clipboard.writeText(text);
+                button.classList.add('copied');
+                button.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    已复制
+                `;
+                showToast('已复制到剪贴板！');
+                setTimeout(() => {
+                    button.classList.remove('copied');
+                    button.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                        复制
+                    `;
+                }, 1500);
+            } catch (err) {
+                showToast('复制失败，请手动选择复制');
+            }
+        }
+
+        // 路径转换函数
+        function convertPath(input) {
+            if (!input || !input.trim()) {
+                return { windows: '', linux: '', macos: '', git: '' };
+            }
+
+            let normalized = input.trim();
+
+            // 检测输入格式（支持单反斜杠和双反斜杠）
+            let isWindows = /^[A-Za-z]:[/\\]/.test(normalized);
+            let isUnix = normalized.startsWith('/') && !isWindows;
+            let isTilde = normalized.startsWith('~');
+
+            // 提取路径部分（去除拖拽的file://等协议）
+            normalized = normalized.replace(/^file:\/\//, '');
+
+            // Windows转Unix
+            if (isWindows) {
+                // 规范化路径（双反斜杠转单反斜杠）
+                const normalizedSingle = normalized.replace(/\\\\/g, '\\');
+                const parts = normalizedSingle.split('\\');
+                const drive = parts[0].replace(':', '').toLowerCase();
+                const rest = parts.slice(1).join('/');
+
+                // Windows路径转换（转义反斜杠用于代码编辑器）
+                const windowsResult = normalizedSingle.replace(/\\/g, '\\\\');
+                
+                // Linux路径 (挂载点格式)
+                const linuxResult = `/mnt/${drive}/${rest.replace(/\\/g, '/')}`;
+                
+                // macOS路径
+                const macosResult = `/Volumes/${drive}/${rest.replace(/\\/g, '/')}`;
+                
+                // Git Bash路径
+                const gitResult = `/${drive}/${rest.replace(/\\/g, '/')}`;
+                
+                return {
+                    windows: windowsResult,
+                    linux: linuxResult,
+                    macos: macosResult,
+                    git: gitResult
+                };
+            }
+            
+            // Unix/Tilde转Windows
+            let pathPart = normalized.replace(/^\/+/, '');
+            
+            // 处理 ~
+            if (isTilde || normalized.startsWith('~')) {
+                pathPart = pathPart.replace(/^\//, '');
+            }
+            
+            // 检测是否是用户目录路径
+            let driveLetter = 'c';
+            let userMatch = pathPart.match(/^(home|Users|u)\//);
+            
+            if (userMatch) {
+                const userIndex = pathPart.indexOf('/');
+                if (userIndex > -1) {
+                    const userName = pathPart.substring(0, userIndex);
+                    const restPath = pathPart.substring(userIndex + 1);
+                    
+                    if (userMatch[1] === 'home' || userMatch[1] === 'u') {
+                        driveLetter = 'c';
+                        return {
+                            windows: `C:\\Users\\${userName}\\${restPath.replace(/\//g, '\\')}`,
+                            linux: `/${pathPart}`,
+                            macos: `/Users/${userName}/${restPath}`,
+                            git: `/c/Users/${userName}/${restPath}`
+                        };
+                    } else if (userMatch[1] === 'Users') {
+                        driveLetter = 'c';
+                        return {
+                            windows: `C:\\Users\\${userName}\\${restPath.replace(/\//g, '\\')}`,
+                            linux: `/${pathPart}`,
+                            macos: `/${pathPart}`,
+                            git: `/c/Users/${userName}/${restPath}`
+                        };
+                    }
+                }
+            }
+            
+            // 处理 /mnt/ 或 /volumes/
+            if (pathPart.startsWith('mnt/')) {
+                pathPart = pathPart.replace('mnt/', '');
+                const parts = pathPart.split('/');
+                const drive = parts[0];
+                const rest = parts.slice(1).join('\\\\');
+                return {
+                    windows: `${drive.toUpperCase()}:\\\\${rest}`,
+                    linux: `/mnt/${pathPart.replace(/\//g, '/')}`,
+                    macos: `/Volumes/${drive}/${parts.slice(1).join('/')}`,
+                    git: `/${drive}/${parts.slice(1).join('/')}`
+                };
+            }
+            
+            if (pathPart.startsWith('Volumes/')) {
+                pathPart = pathPart.replace('Volumes/', '');
+                const parts = pathPart.split('/');
+                const drive = parts[0];
+                const rest = parts.slice(1).join('\\\\');
+                return {
+                    windows: `${drive.toUpperCase()}:\\\\${rest}`,
+                    linux: `/mnt/${drive}/${parts.slice(1).join('/')}`,
+                    macos: `/Volumes/${pathPart.replace(/\//g, '/')}`,
+                    git: `/${drive}/${parts.slice(1).join('/')}`
+                };
+            }
+            
+            // 通用Unix路径转换
+            const parts = pathPart.split('/');
+            const firstPart = parts[0] || 'home';
+            const restParts = parts.slice(1);
+            
+            return {
+                windows: `C:\\\\${firstPart}\\\\${restParts.join('\\\\')}`,
+                linux: `/${pathPart}`,
+                macos: `/${pathPart}`,
+                git: `/${firstPart.charAt(0)}/${restParts.join('/')}`
+            };
+        }
+
+        // 更新转换结果
+        function updateConversions() {
+            const input = pathInput.value;
+            const conversions = convertPath(input);
+            
+            const windowsEl = document.getElementById('windows');
+            const linuxEl = document.getElementById('linux');
+            const macosEl = document.getElementById('macos');
+            const gitEl = document.getElementById('git');
+            
+            const setOutput = (el, value) => {
+                if (value) {
+                    el.textContent = value;
+                    el.classList.remove('empty');
+                } else {
+                    el.textContent = '等待输入...';
+                    el.classList.add('empty');
+                }
+            };
+            
+            setOutput(windowsEl, conversions.windows);
+            setOutput(linuxEl, conversions.linux);
+            setOutput(macosEl, conversions.macos);
+            setOutput(gitEl, conversions.git);
+            
+            // 如果有默认语言且输入不为空，自动复制
+            const defaultLang = defaultLangSelect.value;
+            if (defaultLang && input.trim()) {
+                const targetMap = {
+                    windows: conversions.windows,
+                    linux: conversions.linux,
+                    macos: conversions.macos,
+                    git: conversions.git
+                };
+                const targetPath = targetMap[defaultLang];
+                if (targetPath) {
+                    navigator.clipboard.writeText(targetPath).then(() => {
+                        showToast(`已自动复制 ${document.querySelector(`[data-target="${defaultLang}"]`).closest('.output-card').querySelector('.card-name').textContent} 路径！`);
+                    }).catch(() => {});
+                }
+            }
+        }
+
+        // 输入监听
+        pathInput.addEventListener('input', updateConversions);
+
+        // 粘贴按钮
+        document.getElementById('pasteBtn').addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                pathInput.value = text;
+                updateConversions();
+            } catch (err) {
+                showToast('无法访问剪贴板，请手动粘贴');
+            }
+        });
+
+        // 清空按钮
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            pathInput.value = '';
+            updateConversions();
+        });
+
+        // 复制按钮点击
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.target;
+                const text = document.getElementById(target).textContent;
+                if (text && !text.includes('等待输入')) {
+                    copyToClipboard(text, btn);
+                } else {
+                    showToast('没有可复制的路径');
+                }
+            });
+        });
+
+        // 键盘粘贴检测
+        pathInput.addEventListener('paste', () => {
+            setTimeout(updateConversions, 0);
+        });
+    </script>
+</body>
+</html>
