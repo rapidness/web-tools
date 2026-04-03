@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF标注组件 - 使用示例</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="pdf-annotator-component.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #1e293b 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .description {
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+
+        .api-section {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .api-section h2 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #6366f1;
+        }
+
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 10px 0;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .code-block .comment {
+            color: #64748b;
+        }
+
+        .code-block .keyword {
+            color: #c084fc;
+        }
+
+        .code-block .string {
+            color: #34d399;
+        }
+
+        .code-block .function {
+            color: #60a5fa;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #4f46e5;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            border-color: #6366f1;
+            color: #6366f1;
+        }
+
+        .annotator-wrapper {
+            height: 800px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .output-area {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow: auto;
+        }
+
+        .output-area pre {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #1e293b;
+        }
+
+        .event-log {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow: auto;
+        }
+
+        .event-log .log-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            background: white;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            border-left: 3px solid #6366f1;
+        }
+
+        .event-log .log-item .time {
+            color: #94a3b8;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 PDF标注组件 - Web Component</h1>
+            <p class="description">支持 PDF 和 JSON 数据的传入传出，可在任何页面中复用</p>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="loadSamplePDF()">📄 加载示例PDF</button>
+                <button class="btn btn-secondary" onclick="getAnnotations()">📊 获取标注数据</button>
+                <button class="btn btn-secondary" onclick="loadSampleJSON()">📥 加载示例JSON</button>
+                <button class="btn btn-secondary" onclick="clearAnnotations()">🗑️ 清空标注</button>
+            </div>
+        </header>
+
+        <div class="api-section">
+            <h2>📖 API 使用文档</h2>
+            
+            <h3 style="margin-top: 15px; color: #1e293b;">1. 基本使用</h3>
+            <div class="code-block">
+<span class="comment">&lt;!-- 引入依赖和组件 --&gt;</span>
+&lt;script src=<span class="string">"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"</span>&gt;&lt;/script&gt;
+&lt;script src=<span class="string">"pdf-annotator-component.js"</span>&gt;&lt;/script&gt;
+
+<span class="comment">&lt;!-- 使用组件 --&gt;</span>
+&lt;pdf-annotator id=<span class="string">"myAnnotator"</span> style=<span class="string">"height: 800px"</span>&gt;&lt;/pdf-annotator&gt;
+            </div>
+
+            <h3 style="margin-top: 15px; color: #1e293b;">2. 加载 PDF</h3>
+            <div class="code-block">
+<span class="comment">// 方式1: 从URL加载</span>
+annotator.<span class="function">loadPDFFromUrl</span>(<span class="string">'document.pdf'</span>);
+
+<span class="comment">// 方式2: 从File对象加载</span>
+annotator.<span class="function">loadPDFFromFile</span>(fileObject);
+
+<span class="comment">// 方式3: 从Base64加载</span>
+annotator.<span class="function">loadPDFFromBase64</span>(base64String);
+            </div>
+
+            <h3 style="margin-top: 15px; color: #1e293b;">3. 加载标注数据（JSON）</h3>
+            <div class="code-block">
+<span class="comment">// 从JSON对象加载</span>
+<span class="keyword">const</span> data = {
+  rectangles: [
+    {
+      id: 1234567890,
+      page: 1,
+      x: 100, y: 100,
+      width: 200, height: 150,
+      name: <span class="string">"重要信息"</span>,
+      metadata: [{ key: <span class="string">"类型"</span>, value: <span class="string">"标题"</span> }]
+    }
+  ]
+};
+annotator.<span class="function">loadAnnotations</span>(data);
+            </div>
+
+            <h3 style="margin-top: 15px; color: #1e293b;">4. 获取标注数据</h3>
+            <div class="code-block">
+<span class="keyword">const</span> annotations = annotator.<span class="function">getAnnotations</span>();
+console.<span class="function">log</span>(annotations);
+<span class="comment">// 输出: { exportTime, totalPages, rectangles: [...] }</span>
+            </div>
+
+            <h3 style="margin-top: 15px; color: #1e293b;">5. 监听事件</h3>
+            <div class="code-block">
+<span class="comment">// PDF加载完成</span>
+annotator.<span class="function">addEventListener</span>(<span class="string">'pdf-loaded'</span>, (e) => {
+  console.<span class="function">log</span>(<span class="string">`PDF加载完成，共 </span>${e.detail.totalPages}<span class="string"> 页`</span>);
+});
+
+<span class="comment">// 标注变化</span>
+annotator.<span class="function">addEventListener</span>(<span class="string">'annotations-change'</span>, (e) => {
+  console.<span class="function">log</span>(<span class="string">'标注数据:'</span>, e.detail);
+});
+
+<span class="comment">// 标注导出</span>
+annotator.<span class="function">addEventListener</span>(<span class="string">'annotations-exported'</span>, (e) => {
+  console.<span class="function">log</span>(<span class="string">'导出成功:'</span>, e.detail);
+});
+            </div>
+
+            <h3 style="margin-top: 15px; color: #1e293b;">6. 导出JSON文件</h3>
+            <div class="code-block">
+<span class="comment">// 触发下载JSON文件</span>
+annotator.<span class="function">exportAnnotations</span>();
+            </div>
+        </div>
+
+        <div class="api-section">
+            <h2>🔧 组件实例</h2>
+            <div class="annotator-wrapper">
+                <pdf-annotator id="myAnnotator"></pdf-annotator>
+            </div>
+        </div>
+
+        <div class="api-section">
+            <h2>📊 标注数据输出</h2>
+            <div class="output-area">
+                <pre id="outputArea">点击"获取标注数据"按钮查看结果</pre>
+            </div>
+        </div>
+
+        <div class="api-section">
+            <h2>📝 事件日志</h2>
+            <div class="event-log" id="eventLog">
+                <div style="color: #94a3b8; text-align: center; padding: 20px;">
+                    等待事件触发...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const annotator = document.getElementById('myAnnotator');
+        const outputArea = document.getElementById('outputArea');
+        const eventLog = document.getElementById('eventLog');
+
+        // 监听事件
+        annotator.addEventListener('pdf-loaded', (e) => {
+            addLog(`✅ PDF加载成功，共 ${e.detail.totalPages} 页`);
+        });
+
+        annotator.addEventListener('annotations-loaded', (e) => {
+            addLog(`📥 标注数据加载成功，共 ${e.detail.count} 个标注`);
+        });
+
+        annotator.addEventListener('annotations-change', (e) => {
+            addLog(`🔄 标注数据发生变化 (${e.detail.rectangles.length} 个标注)`);
+        });
+
+        annotator.addEventListener('annotations-exported', (e) => {
+            addLog(`💾 标注数据已导出 (${e.detail.rectangles.length} 个标注)`);
+        });
+
+        // 加载示例PDF
+        function loadSamplePDF() {
+            // 这里使用一个在线PDF示例
+            const pdfUrl = 'https://raw.githubusercontent.com/mozilla/pdf.js/master/web/compressed.tracemonkey-pldi-09.pdf';
+            annotator.loadPDFFromUrl(pdfUrl);
+            addLog('📄 开始加载示例PDF...');
+        }
+
+        // 获取标注数据
+        function getAnnotations() {
+            const data = annotator.getAnnotations();
+            outputArea.textContent = JSON.stringify(data, null, 2);
+            addLog('📊 获取标注数据');
+        }
+
+        // 加载示例JSON
+        function loadSampleJSON() {
+            const sampleData = {
+                rectangles: [
+                    {
+                        id: Date.now(),
+                        page: 1,
+                        x: 100,
+                        y: 100,
+                        width: 300,
+                        height: 200,
+                        name: "示例标注",
+                        metadata: [
+                            { key: "类型", value: "标题" },
+                            { key: "重要性", value: "高" }
+                        ]
+                    },
+                    {
+                        id: Date.now() + 1,
+                        page: 1,
+                        x: 450,
+                        y: 350,
+                        width: 250,
+                        height: 150,
+                        name: "另一个标注",
+                        metadata: [
+                            { key: "类型", value: "内容" },
+                            { key: "状态", value: "待审核" }
+                        ]
+                    }
+                ]
+            };
+            
+            annotator.loadAnnotations(sampleData);
+            addLog('📥 加载示例JSON数据');
+            outputArea.textContent = JSON.stringify(sampleData, null, 2);
+        }
+
+        // 清空标注
+        function clearAnnotations() {
+            annotator.rectangles = [];
+            annotator.selectedRectId = null;
+            annotator.updateRectanglesList();
+            annotator.redrawRectangles();
+            addLog('🗑️ 已清空所有标注');
+            outputArea.textContent = '标注已清空';
+        }
+
+        // 添加日志
+        function addLog(message) {
+            const time = new Date().toLocaleTimeString();
+            const logHTML = `
+                <div class="log-item">
+                    <div class="time">${time}</div>
+                    <div>${message}</div>
+                </div>
+            `;
+            
+            if (eventLog.querySelector('[style]')) {
+                eventLog.innerHTML = '';
+            }
+            
+            eventLog.insertAdjacentHTML('afterbegin', logHTML);
+        }
+    </script>
+</body>
+</html>
