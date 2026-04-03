@@ -25,6 +25,10 @@ class PDFAnnotator extends HTMLElement {
     this.currentRect = null;
     this.RESIZE_HANDLE_SIZE = 8;
     
+    // Key 预设列表
+    this.keyPresets = [];
+    this.keyUsageCount = {};
+    
     // PDF.js 配置
     if (typeof pdfjsLib !== 'undefined') {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -32,7 +36,7 @@ class PDFAnnotator extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['pdf-url', 'pdf-data', 'json-data', 'theme'];
+    return ['pdf-url', 'pdf-data', 'json-data', 'theme', 'key-presets'];
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -47,6 +51,9 @@ class PDFAnnotator extends HTMLElement {
         break;
       case 'json-data':
         if (newValue) this.loadAnnotations(JSON.parse(newValue));
+        break;
+      case 'key-presets':
+        if (newValue) this.setKeyPresets(JSON.parse(newValue));
         break;
     }
   }
@@ -308,37 +315,121 @@ class PDFAnnotator extends HTMLElement {
 
         .metadata-row {
           display: flex;
-          gap: 4px;
-          margin-bottom: 6px;
+          gap: 6px;
+          margin-bottom: 8px;
           align-items: center;
+          flex-wrap: nowrap;
+          min-width: 0;
+        }
+
+        .metadata-key-wrapper {
+          flex: 1 1 45%;
+          min-width: 0;
+          position: relative;
         }
 
         .metadata-key {
-          flex: 0.8;
+          width: 100%;
           padding: 4px 8px;
           border: 1px solid var(--border-color);
           border-radius: 4px;
           font-size: 0.75rem;
           background: var(--bg-input);
           color: var(--text-primary);
-          min-width: 0;
+          box-sizing: border-box;
+        }
+
+        .metadata-key-dropdown {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          width: 100%;
+          min-width: 150px;
+          max-width: 300px;
+          background: var(--bg-input);
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          max-height: 200px;
+          overflow-y: auto;
+          z-index: 1000000;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          display: none;
+          box-sizing: border-box;
+        }
+
+        .metadata-key-dropdown.show {
+          display: block;
+        }
+
+        .key-option {
+          padding: 6px 10px;
+          cursor: pointer;
+          font-size: 0.75rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid var(--border-color);
+        }
+
+        .key-option:last-child {
+          border-bottom: none;
+        }
+
+        .key-option:hover {
+          background: var(--accent-glow);
+        }
+
+        .key-option .key-name {
+          color: var(--text-primary);
+          font-weight: 500;
+        }
+
+        .key-option .key-count {
+          color: var(--text-muted);
+          font-size: 0.7rem;
+          background: var(--bg-card);
+          padding: 2px 6px;
+          border-radius: 10px;
+        }
+
+        .key-option.used {
+          background: rgba(99, 102, 241, 0.05);
         }
 
         .metadata-value {
-          flex: 1;
+          flex: 1 1 45%;
+          min-width: 0;
           padding: 4px 8px;
           border: 1px solid var(--border-color);
           border-radius: 4px;
           font-size: 0.75rem;
           background: var(--bg-input);
           color: var(--text-primary);
-          min-width: 0;
+          box-sizing: border-box;
         }
 
         .delete-metadata {
-          flex-shrink: 0;
-          width: 24px;
-          height: 24px;
+          flex: 0 0 26px;
+          min-width: 26px;
+          width: 26px;
+          height: 26px;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          background: transparent;
+          color: var(--text-muted);
+          cursor: pointer;
+          font-size: 14px;
+          line-height: 1;
+        }
+
+        .delete-metadata:hover {
+          background: rgba(239, 68, 68, 0.1);
+          color: var(--danger);
+          border-color: var(--danger);
         }
 
         .add-metadata-btn {
@@ -396,6 +487,180 @@ class PDFAnnotator extends HTMLElement {
           opacity: 1;
         }
 
+        .edit-overlay {
+          position: absolute;
+          background: white;
+          border: 2px solid var(--accent);
+          border-radius: 8px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+          z-index: 10001;
+          min-width: 320px;
+          max-width: 90%;
+          max-height: 600px;
+          display: none;
+          overflow: visible;
+        }
+
+        .edit-overlay.show {
+          display: block;
+        }
+
+        .edit-overlay-body {
+          padding: 16px;
+          max-height: 550px;
+          overflow-y: auto;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .edit-overlay-header {
+          padding: 10px 12px;
+          background: var(--accent);
+          color: white;
+          border-radius: 6px 6px 0 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-weight: 600;
+          font-size: 0.85rem;
+        }
+
+        .edit-overlay-close {
+          width: 24px;
+          height: 24px;
+          border: none;
+          background: rgba(255, 255, 255, 0.2);
+          color: white;
+          border-radius: 4px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.1rem;
+        }
+
+        .edit-overlay-close:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
+
+        .edit-overlay-body {
+          padding: 16px;
+          max-height: 550px;
+          overflow-y: auto;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .edit-overlay-row {
+          margin-bottom: 12px;
+        }
+
+        .edit-overlay-row label {
+          display: block;
+          font-size: 0.75rem;
+          color: var(--text-secondary);
+          margin-bottom: 4px;
+          font-weight: 500;
+        }
+
+        .edit-overlay-input {
+          width: 100%;
+          padding: 6px 10px;
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          font-size: 0.8rem;
+          background: var(--bg-input);
+          color: var(--text-primary);
+        }
+
+        .edit-overlay-input:focus {
+          outline: none;
+          border-color: var(--accent);
+          box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        .edit-overlay-metadata {
+          border-top: 1px solid var(--border-color);
+          padding-top: 10px;
+          margin-top: 10px;
+        }
+
+        .edit-overlay-metadata-title {
+          font-size: 0.75rem;
+          color: var(--text-secondary);
+          margin-bottom: 8px;
+          font-weight: 600;
+        }
+
+        .edit-overlay-meta-row {
+          display: flex;
+          gap: 6px;
+          margin-bottom: 8px;
+          align-items: center;
+          flex-wrap: nowrap;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .edit-overlay-meta-key {
+          flex: 1 1 35%;
+          min-width: 80px;
+          max-width: 120px;
+          padding: 6px 8px;
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          font-size: 0.8rem;
+          background: var(--bg-input);
+          color: var(--text-primary);
+          box-sizing: border-box;
+        }
+
+        .edit-overlay-meta-value {
+          flex: 1 1 40%;
+          min-width: 100px;
+          padding: 6px 8px;
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          font-size: 0.8rem;
+          background: var(--bg-input);
+          color: var(--text-primary);
+          box-sizing: border-box;
+        }
+
+        .edit-overlay-btn {
+          padding: 6px 10px;
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          background: var(--bg-card);
+          color: var(--text-secondary);
+          font-size: 0.8rem;
+          cursor: pointer;
+          transition: var(--transition);
+          flex: 0 0 28px;
+          width: 28px;
+          height: 28px;
+          min-width: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .edit-overlay-btn.delete {
+          font-size: 16px;
+          color: var(--danger);
+          border-color: var(--border-color);
+        }
+
+        .edit-overlay-btn.delete:hover {
+          background: rgba(239, 68, 68, 0.1);
+          border-color: var(--danger);
+        }
+
+        .edit-overlay-btn:hover {
+          border-color: var(--accent);
+          color: var(--accent);
+        }
+
         input[type="file"] {
           display: none;
         }
@@ -450,6 +715,15 @@ class PDFAnnotator extends HTMLElement {
       </div>
       
       <div class="toast" id="toast"></div>
+      
+      <div class="edit-overlay" id="editOverlay">
+        <div class="edit-overlay-header">
+          <span>编辑标注</span>
+          <button class="edit-overlay-close" onclick="this.getRootNode().host.closeEditOverlay()">×</button>
+        </div>
+        <div class="edit-overlay-body" id="editOverlayBody">
+        </div>
+      </div>
     `;
   }
 
@@ -501,11 +775,42 @@ class PDFAnnotator extends HTMLElement {
       this.updateRectanglesList();
     });
     
+    // 点击其他地方关闭下拉框和浮层
+    document.addEventListener('click', (e) => {
+      const shadow = this.shadowRoot;
+      const overlay = shadow.getElementById('editOverlay');
+      
+      // 如果点击的是浮层内部，不关闭浮层
+      if (overlay && overlay.classList.contains('show')) {
+        if (e.target.closest('#editOverlay')) {
+          return;
+        }
+      }
+      
+      if (!e.target.closest('.metadata-key-wrapper')) {
+        const dropdowns = shadow.querySelectorAll('.metadata-key-dropdown');
+        dropdowns.forEach(d => {
+          d.style.display = 'none';
+          d.classList.remove('show');
+        });
+      }
+      
+      // 如果点击的是画布空白处，关闭浮层
+      if (e.target.closest('#pdfViewer') && !e.target.closest('#editOverlay') && !e.target.closest('#drawCanvas')) {
+        if (overlay && overlay.classList.contains('show')) {
+          this.closeEditOverlay();
+        }
+      }
+    });
+    
     // Canvas事件
     const drawCanvas = shadow.getElementById('drawCanvas');
     drawCanvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     drawCanvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
     drawCanvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+    
+    // 双击编辑
+    drawCanvas.addEventListener('dblclick', (e) => this.handleDoubleClick(e));
   }
 
   // 公共API方法
@@ -580,6 +885,9 @@ class PDFAnnotator extends HTMLElement {
     if (data.rectangles && Array.isArray(data.rectangles)) {
       this.rectangles = data.rectangles;
       
+      // 更新 key 使用次数统计
+      this.updateKeyUsageCount();
+      
       // 如果有PDF数据，先加载PDF
       if (data.pdfBase64) {
         this.loadPDFFromBase64(data.pdfBase64).then(() => {
@@ -631,12 +939,524 @@ class PDFAnnotator extends HTMLElement {
   }
 
   /**
+   * 设置 key 预设列表
+   */
+  setKeyPresets(keys) {
+    this.keyPresets = Array.isArray(keys) ? keys : [];
+    this.updateKeyUsageCount();
+  }
+
+  /**
+   * 更新 key 使用次数统计
+   */
+  updateKeyUsageCount() {
+    this.keyUsageCount = {};
+    
+    // 统计所有已使用的 key
+    this.rectangles.forEach(rect => {
+      if (rect.metadata) {
+        rect.metadata.forEach(meta => {
+          if (meta.key) {
+            this.keyUsageCount[meta.key] = (this.keyUsageCount[meta.key] || 0) + 1;
+          }
+        });
+      }
+    });
+  }
+
+  /**
+   * 获取推荐的 key 列表（按使用次数排序）
+   */
+  getRecommendedKeys() {
+    const allKeys = new Set([...this.keyPresets, ...Object.keys(this.keyUsageCount)]);
+    const keysWithCount = Array.from(allKeys).map(key => ({
+      key,
+      count: this.keyUsageCount[key] || 0
+    }));
+    
+    // 按使用次数降序排序
+    keysWithCount.sort((a, b) => b.count - a.count);
+    return keysWithCount;
+  }
+
+  /**
    * 获取PDF Base64
    */
   async getPDFBase64() {
     if (!this.pdfDoc) return null;
     // 需要原始PDF数据，这里返回null，建议在load时保存
     return this._originalPdfBase64 || null;
+  }
+
+  /**
+   * 渲染 key 下拉选项
+   */
+  renderKeyOptions(rectId, index) {
+    const recommendedKeys = this.getRecommendedKeys();
+    
+    if (recommendedKeys.length === 0) {
+      return '';
+    }
+    
+    const optionsHTML = recommendedKeys.map(item => {
+      const safeKey = item.key.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      return `
+        <div class="key-option ${item.count > 0 ? 'used' : ''}" 
+             onclick="event.stopPropagation(); this.getRootNode().host.selectKey(${rectId}, ${index}, '${safeKey}')">
+          <span class="key-name">${item.key}</span>
+          ${item.count > 0 ? `<span class="key-count">${item.count}次</span>` : ''}
+        </div>
+      `;
+    }).join('');
+    
+    return `
+      <div class="metadata-key-dropdown" id="key-dropdown-${rectId}-${index}">
+        ${optionsHTML}
+      </div>
+    `;
+  }
+
+  /**
+   * 选择 key
+   */
+  selectKey(rectId, index, key) {
+    const rect = this.rectangles.find(r => r.id === rectId);
+    if (rect && rect.metadata[index]) {
+      const oldKey = rect.metadata[index].key;
+      
+      // 如果 key 没有变化，不做任何操作
+      if (oldKey === key) {
+        // 关闭下拉框
+        const dropdown = this.shadowRoot.getElementById(`key-dropdown-${rectId}-${index}`);
+        if (dropdown) {
+          dropdown.style.display = 'none';
+          dropdown.classList.remove('show');
+        }
+        return;
+      }
+      
+      // 减少旧 key 的使用次数
+      if (oldKey && this.keyUsageCount[oldKey]) {
+        this.keyUsageCount[oldKey]--;
+        if (this.keyUsageCount[oldKey] <= 0) {
+          delete this.keyUsageCount[oldKey];
+        }
+      }
+      
+      // 设置新 key
+      rect.metadata[index].key = key;
+      
+      // 增加新 key 的使用次数
+      if (key) {
+        this.keyUsageCount[key] = (this.keyUsageCount[key] || 0) + 1;
+      }
+      
+      // 关闭下拉框
+      const dropdown = this.shadowRoot.getElementById(`key-dropdown-${rectId}-${index}`);
+      if (dropdown) {
+        dropdown.style.display = 'none';
+        dropdown.classList.remove('show');
+      }
+      
+      this.updateRectanglesList();
+      this.redrawRectangles();
+      this.emitAnnotationsChange();
+    }
+  }
+
+  /**
+   * 切换 key 下拉框
+   */
+  toggleKeyDropdown(rectId, index) {
+    const dropdown = this.shadowRoot.getElementById(`key-dropdown-${rectId}-${index}`);
+    if (dropdown) {
+      // 关闭其他下拉框
+      this.shadowRoot.querySelectorAll('.metadata-key-dropdown').forEach(d => {
+        if (d.id !== `key-dropdown-${rectId}-${index}`) {
+          d.style.display = 'none';
+          d.classList.remove('show');
+        }
+      });
+      
+      // 切换当前下拉框
+      if (dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+        dropdown.classList.remove('show');
+      } else {
+        dropdown.style.display = 'block';
+        dropdown.classList.add('show');
+      }
+    }
+  }
+
+  /**
+   * 处理 key 输入变化（手动修改时更新统计）
+   */
+  handleKeyInputChange(rectId, index, newValue) {
+    const rect = this.rectangles.find(r => r.id === rectId);
+    if (rect && rect.metadata[index]) {
+      const oldKey = rect.metadata[index].key;
+      
+      // 如果 key 没有变化，不做任何操作
+      if (oldKey === newValue) {
+        // 关闭下拉框
+        const dropdown = this.shadowRoot.getElementById(`key-dropdown-${rectId}-${index}`);
+        if (dropdown) {
+          dropdown.style.display = 'none';
+          dropdown.classList.remove('show');
+        }
+        return;
+      }
+      
+      // 减少旧 key 的使用次数
+      if (oldKey && this.keyUsageCount[oldKey]) {
+        this.keyUsageCount[oldKey]--;
+        if (this.keyUsageCount[oldKey] <= 0) {
+          delete this.keyUsageCount[oldKey];
+        }
+      }
+      
+      // 设置新 key
+      rect.metadata[index].key = newValue;
+      
+      // 增加新 key 的使用次数
+      if (newValue) {
+        this.keyUsageCount[newValue] = (this.keyUsageCount[newValue] || 0) + 1;
+      }
+      
+      // 关闭下拉框
+      const dropdown = this.shadowRoot.getElementById(`key-dropdown-${rectId}-${index}`);
+      if (dropdown) {
+        dropdown.style.display = 'none';
+        dropdown.classList.remove('show');
+      }
+      
+      this.redrawRectangles();
+      this.emitAnnotationsChange();
+    }
+  }
+
+  /**
+   * 双击矩形框打开编辑浮层
+   */
+  handleDoubleClick(e) {
+    const rect = this.shadowRoot.getElementById('drawCanvas').getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    const clickedRect = this.getRectAtPosition(mouseX, mouseY);
+    if (clickedRect) {
+      this.openEditOverlay(clickedRect, e.clientX, e.clientY);
+    }
+  }
+
+  /**
+   * 打开编辑浮层
+   */
+  openEditOverlay(rect, clientX, clientY) {
+    const shadow = this.shadowRoot;
+    const overlay = shadow.getElementById('editOverlay');
+    const body = shadow.getElementById('editOverlayBody');
+    const pdfViewer = shadow.getElementById('pdfViewer');
+    
+    // 固定尺寸
+    const overlayWidth = 320;
+    const overlayHeight = 450;
+    
+    // 获取 pdfViewer 的布局信息
+    const viewerRect = pdfViewer.getBoundingClientRect();
+    const viewerStyle = window.getComputedStyle(pdfViewer);
+    
+    // 解析 padding
+    const paddingLeft = parseFloat(viewerStyle.paddingLeft) || 0;
+    const paddingTop = parseFloat(viewerStyle.paddingTop) || 0;
+    
+    // 获取页面滚动位置
+    const pageScrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+    const pageScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    
+    // 计算滚动条宽度（如果有滚动条）
+    const hasVerticalScrollbar = pdfViewer.scrollHeight > pdfViewer.clientHeight;
+    const hasHorizontalScrollbar = pdfViewer.scrollWidth > pdfViewer.clientWidth;
+    const scrollbarWidth = hasVerticalScrollbar ? 17 : 0;
+    const scrollbarHeight = hasHorizontalScrollbar ? 17 : 0;
+    
+    // 计算内容区域的实际可用尺寸
+    const contentWidth = viewerRect.width - paddingLeft - scrollbarWidth;
+    const contentHeight = viewerRect.height - paddingTop - scrollbarHeight;
+    
+    // 获取 pdfViewer 的滚动位置
+    const viewerScrollLeft = pdfViewer.scrollLeft;
+    const viewerScrollTop = pdfViewer.scrollTop;
+    
+    // 计算鼠标相对于 pdfViewer 内容区域左上角的偏移
+    // 坐标系转换：
+    // clientX/Y (视口坐标) → 减去容器 border 内边缘位置 → 加上页面滚动/减去内容滚动
+    // 
+    // getBoundingClientRect() 返回的是元素 border-box 相对于视口的位置
+    // 页面滚动 pageX/YOffset 会改变视口原点
+    // 内容滚动 scrollLeft/Top 改变内容相对于容器的位置
+    
+    const offsetX = clientX - viewerRect.left + pageScrollX - viewerScrollLeft;
+    const offsetY = clientY + pageScrollY ;
+    
+    // 计算浮层位置 - 基于鼠标点击位置
+    let left = offsetX + 15;
+    let top = offsetY - 10;
+    
+    // 如果右侧空间不够，放在鼠标左侧
+    if (left + overlayWidth > contentWidth) {
+      left = offsetX - overlayWidth - 15;
+    }
+    
+    // 如果左侧也不够，放在下方
+    if (left < 0) {
+      left = paddingLeft + 15;
+      top = offsetY + 20;
+    }
+    
+    // 如果下方空间不够，放在上方
+    if (top + overlayHeight > contentHeight) {
+      top = offsetY - overlayHeight - 15;
+    }
+    
+    // 确保不超出边界
+    if (top < paddingTop) top = paddingTop + 10;
+    if (left < paddingLeft) left = paddingLeft + 10;
+    
+    overlay.style.left = left + 'px';
+    overlay.style.top = top + 'px';
+    
+    // 渲染编辑内容
+    body.innerHTML = this.renderEditOverlayContent(rect);
+    
+    overlay.classList.add('show');
+    this.selectedRectId = rect.id;
+    this.redrawRectangles();
+  }
+
+  /**
+   * 关闭编辑浮层
+   */
+  closeEditOverlay() {
+    const overlay = this.shadowRoot.getElementById('editOverlay');
+    overlay.classList.remove('show');
+  }
+
+  /**
+   * 渲染编辑浮层内容
+   */
+  renderEditOverlayContent(rect) {
+    const metadataHTML = rect.metadata.map((meta, idx) => {
+      // 每个 metadata 生成自己的 key 选项
+      const recommendedKeys = this.getRecommendedKeys();
+      const keyOptionsHTML = recommendedKeys.length > 0 ? `
+        <div style="position: relative;">
+          ${recommendedKeys.map(item => {
+            const safeKey = item.key.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            return `
+              <div class="key-option ${item.count > 0 ? 'used' : ''}" 
+                   onclick="event.stopPropagation(); this.getRootNode().host.selectOverlayKey('${rect.id}', ${idx}, '${safeKey}')">
+                <span class="key-name">${item.key}</span>
+                ${item.count > 0 ? `<span class="key-count">${item.count}次</span>` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      ` : '';
+      
+      return `
+        <div class="edit-overlay-meta-row">
+          <div style="flex: 1; position: relative;">
+            <input type="text" class="edit-overlay-meta-key" placeholder="Key" value="${meta.key}" 
+              onclick="event.stopPropagation()"
+              onchange="this.getRootNode().host.handleOverlayKeyChange('${rect.id}', ${idx}, this.value)"
+              onfocus="this.getRootNode().host.showOverlayKeyDropdown('${rect.id}', ${idx})">
+            <div class="metadata-key-dropdown" id="overlay-key-dropdown-${rect.id}-${idx}" style="display: none;">
+              ${keyOptionsHTML}
+            </div>
+          </div>
+          <input type="text" class="edit-overlay-meta-value" placeholder="Value" value="${meta.value}" 
+            onclick="event.stopPropagation()"
+            onchange="this.getRootNode().host.updateOverlayMetadata('${rect.id}', ${idx}, 'value', this.value)">
+          <button class="edit-overlay-btn delete" onclick="event.stopPropagation(); this.getRootNode().host.deleteOverlayMetadata('${rect.id}', ${idx})">×</button>
+        </div>
+      `;
+    }).join('');
+    
+    return `
+      <div class="edit-overlay-row">
+        <label>标注名称</label>
+        <input type="text" class="edit-overlay-input" value="${rect.name}" 
+          onclick="event.stopPropagation()"
+          onchange="this.getRootNode().host.updateOverlayRectName('${rect.id}', this.value)">
+      </div>
+      
+      <div class="edit-overlay-row">
+        <label>坐标信息</label>
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace; padding: 6px; background: var(--bg-card); border-radius: 4px;">
+          X: ${rect.x}, Y: ${rect.y}<br>
+          宽: ${rect.width}, 高: ${rect.height}
+        </div>
+      </div>
+      
+      <div class="edit-overlay-metadata">
+        <div class="edit-overlay-metadata-title">Key/Value 对</div>
+        ${metadataHTML}
+        <button class="edit-overlay-btn" style="width: 100%; margin-top: 8px;" 
+          onclick="this.getRootNode().host.addOverlayMetadata('${rect.id}')">
+          + 添加键值对
+        </button>
+      </div>
+    `;
+  }
+
+  /**
+   * 显示浮层中的 key 下拉框
+   */
+  showOverlayKeyDropdown(rectId, index) {
+    // 关闭其他下拉框
+    this.shadowRoot.querySelectorAll('#editOverlay .metadata-key-dropdown').forEach(d => {
+      d.style.display = 'none';
+    });
+    
+    const dropdown = this.shadowRoot.getElementById(`overlay-key-dropdown-${rectId}-${index}`);
+    if (dropdown) {
+      dropdown.style.display = 'block';
+    }
+  }
+
+  /**
+   * 在浮层中选择 key
+   */
+  selectOverlayKey(rectId, index, key) {
+    // 直接使用传入的 index，不再查找 activeElement
+    this.handleOverlayKeyChange(rectId, index, key);
+  }
+
+  /**
+   * 处理浮层中 key 的变化
+   */
+  handleOverlayKeyChange(rectId, index, newValue) {
+    const rect = this.rectangles.find(r => r.id == rectId);
+    if (rect && rect.metadata[index]) {
+      const oldKey = rect.metadata[index].key;
+      
+      // 如果 key 没有变化，不做任何操作
+      if (oldKey === newValue) {
+        return;
+      }
+      
+      // 减少旧 key 计数
+      if (oldKey && this.keyUsageCount[oldKey]) {
+        this.keyUsageCount[oldKey]--;
+        if (this.keyUsageCount[oldKey] <= 0) {
+          delete this.keyUsageCount[oldKey];
+        }
+      }
+      
+      // 设置新 key
+      rect.metadata[index].key = newValue;
+      
+      // 增加新 key 计数
+      if (newValue) {
+        this.keyUsageCount[newValue] = (this.keyUsageCount[newValue] || 0) + 1;
+      }
+      
+      this.redrawRectangles();
+      this.emitAnnotationsChange();
+      
+      // 关闭下拉框
+      const dropdown = this.shadowRoot.getElementById(`overlay-key-dropdown-${rectId}-${index}`);
+      if (dropdown) {
+        dropdown.style.display = 'none';
+      }
+      
+      // 重新渲染浮层以更新显示
+      const body = this.shadowRoot.getElementById('editOverlayBody');
+      if (body) {
+        body.innerHTML = this.renderEditOverlayContent(rect);
+      }
+    }
+  }
+
+  /**
+   * 更新浮层中的 metadata
+   */
+  updateOverlayMetadata(rectId, index, field, value) {
+    const rect = this.rectangles.find(r => r.id == rectId);
+    if (rect && rect.metadata[index]) {
+      rect.metadata[index][field] = value;
+      this.redrawRectangles();
+      this.emitAnnotationsChange();
+    }
+  }
+
+  /**
+   * 删除浮层中的 metadata
+   */
+  deleteOverlayMetadata(rectId, index) {
+    const rect = this.rectangles.find(r => r.id == rectId);
+    if (rect && rect.metadata[index]) {
+      const meta = rect.metadata[index];
+      
+      // 减少 key 计数
+      if (meta.key && this.keyUsageCount[meta.key]) {
+        this.keyUsageCount[meta.key]--;
+        if (this.keyUsageCount[meta.key] <= 0) {
+          delete this.keyUsageCount[meta.key];
+        }
+      }
+      
+      rect.metadata.splice(index, 1);
+      
+      // 确保至少保留一个
+      if (rect.metadata.length === 0) {
+        rect.metadata.push({ key: '', value: '' });
+      }
+      
+      // 重新渲染浮层
+      this.openEditOverlay(rect, 
+        parseFloat(this.shadowRoot.getElementById('editOverlay').style.left) + this.getBoundingClientRect().left - 10,
+        parseFloat(this.shadowRoot.getElementById('editOverlay').style.top) + this.getBoundingClientRect().top + 50
+      );
+      
+      this.redrawRectangles();
+      this.updateRectanglesList();
+      this.emitAnnotationsChange();
+    }
+  }
+
+  /**
+   * 在浮层中添加 metadata
+   */
+  addOverlayMetadata(rectId) {
+    const rect = this.rectangles.find(r => r.id == rectId);
+    if (rect) {
+      rect.metadata.push({ key: '', value: '' });
+      
+      // 重新渲染浮层
+      this.openEditOverlay(rect,
+        parseFloat(this.shadowRoot.getElementById('editOverlay').style.left) + this.getBoundingClientRect().left - 10,
+        parseFloat(this.shadowRoot.getElementById('editOverlay').style.top) + this.getBoundingClientRect().top + 50
+      );
+      
+      this.updateRectanglesList();
+      this.emitAnnotationsChange();
+    }
+  }
+
+  /**
+   * 更新浮层中的矩形名称
+   */
+  updateOverlayRectName(rectId, name) {
+    const rect = this.rectangles.find(r => r.id == rectId);
+    if (rect) {
+      rect.name = name;
+      this.redrawRectangles();
+      this.updateRectanglesList();
+      this.emitAnnotationsChange();
+    }
   }
 
   // 内部方法
@@ -1011,9 +1831,15 @@ class PDFAnnotator extends HTMLElement {
           <div class="rect-metadata">
             ${rect.metadata.map((meta, idx) => `
               <div class="metadata-row">
-                <input type="text" class="metadata-key" placeholder="Key" value="${meta.key}" onchange="this.getRootNode().host.updateMetadata(${rect.id}, ${idx}, 'key', this.value)" onclick="event.stopPropagation()">
+                <div class="metadata-key-wrapper">
+                  <input type="text" class="metadata-key" placeholder="Key" value="${meta.key}" 
+                    onchange="this.getRootNode().host.handleKeyInputChange(${rect.id}, ${idx}, this.value)" 
+                    onclick="event.stopPropagation(); this.getRootNode().host.toggleKeyDropdown(${rect.id}, ${idx})" 
+                    onfocus="this.getRootNode().host.toggleKeyDropdown(${rect.id}, ${idx})">
+                  ${this.renderKeyOptions(rect.id, idx)}
+                </div>
                 <input type="text" class="metadata-value" placeholder="Value" value="${meta.value}" onchange="this.getRootNode().host.updateMetadata(${rect.id}, ${idx}, 'value', this.value)" onclick="event.stopPropagation()">
-                <button class="icon-btn delete-metadata" onclick="this.getRootNode().host.deleteMetadata(${rect.id}, ${idx})" title="删除">
+                <button class="icon-btn delete-metadata" onclick="event.stopPropagation(); this.getRootNode().host.deleteMetadata(${rect.id}, ${idx})" title="删除">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"/>
                     <line x1="6" y1="6" x2="18" y2="18"/>
@@ -1049,6 +1875,7 @@ class PDFAnnotator extends HTMLElement {
     if (this.selectedRectId === id) {
       this.selectedRectId = null;
     }
+    this.updateKeyUsageCount();
     this.updateRectanglesList();
     this.redrawRectangles();
     this.showToast('标注已删除');
@@ -1067,10 +1894,23 @@ class PDFAnnotator extends HTMLElement {
   deleteMetadata(rectId, index) {
     const rect = this.rectangles.find(r => r.id === rectId);
     if (rect && rect.metadata[index]) {
+      // 减少被删除的 key 的使用次数
+      const deletedMeta = rect.metadata[index];
+      if (deletedMeta.key && this.keyUsageCount[deletedMeta.key]) {
+        this.keyUsageCount[deletedMeta.key]--;
+        if (this.keyUsageCount[deletedMeta.key] <= 0) {
+          delete this.keyUsageCount[deletedMeta.key];
+        }
+      }
+      
+      // 删除 metadata
       rect.metadata.splice(index, 1);
+      
+      // 确保至少保留一个
       if (rect.metadata.length === 0) {
         rect.metadata.push({ key: '', value: '' });
       }
+      
       this.updateRectanglesList();
       this.redrawRectangles();
       this.emitAnnotationsChange();
@@ -1080,7 +1920,42 @@ class PDFAnnotator extends HTMLElement {
   updateMetadata(rectId, index, field, value) {
     const rect = this.rectangles.find(r => r.id === rectId);
     if (rect && rect.metadata[index]) {
-      rect.metadata[index][field] = value;
+      // 如果是 key 字段，需要正确处理计数
+      if (field === 'key') {
+        const oldKey = rect.metadata[index].key;
+        
+        // 如果 key 没有变化，不做任何操作
+        if (oldKey === value) {
+          return;
+        }
+        
+        // 减少旧 key 的使用次数
+        if (oldKey && this.keyUsageCount[oldKey]) {
+          this.keyUsageCount[oldKey]--;
+          if (this.keyUsageCount[oldKey] <= 0) {
+            delete this.keyUsageCount[oldKey];
+          }
+        }
+        
+        // 设置新 key
+        rect.metadata[index].key = value;
+        
+        // 增加新 key 的使用次数
+        if (value) {
+          this.keyUsageCount[value] = (this.keyUsageCount[value] || 0) + 1;
+        }
+      } else {
+        // 其他字段直接更新
+        rect.metadata[index][field] = value;
+      }
+      
+      // 关闭下拉框
+      const dropdown = this.shadowRoot.getElementById(`key-dropdown-${rectId}-${index}`);
+      if (dropdown) {
+        dropdown.style.display = 'none';
+        dropdown.classList.remove('show');
+      }
+      
       this.redrawRectangles();
       this.emitAnnotationsChange();
     }

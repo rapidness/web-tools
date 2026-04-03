@@ -184,6 +184,7 @@
                 <button class="btn btn-primary" onclick="loadSamplePDF()">📄 加载示例PDF</button>
                 <button class="btn btn-secondary" onclick="getAnnotations()">📊 获取标注数据</button>
                 <button class="btn btn-secondary" onclick="loadSampleJSON()">📥 加载示例JSON</button>
+                <button class="btn btn-secondary" onclick="setKeyPresets()">🔑 设置Key预设</button>
                 <button class="btn btn-secondary" onclick="clearAnnotations()">🗑️ 清空标注</button>
             </div>
         </header>
@@ -256,7 +257,17 @@ annotator.<span class="function">addEventListener</span>(<span class="string">'a
 });
             </div>
 
-            <h3 style="margin-top: 15px; color: #1e293b;">6. 导出JSON文件</h3>
+            <h3 style="margin-top: 15px; color: #1e293b;">6. 设置 Key 预设列表</h3>
+            <div class="code-block">
+<span class="comment">// 设置预设 key 列表，用户可以从下拉框中选择</span>
+<span class="keyword">const</span> keys = [<span class="string">"姓名"</span>, <span class="string">"日期"</span>, <span class="string">"金额"</span>, <span class="string">"地址"</span>, <span class="string">"电话"</span>];
+annotator.<span class="function">setKeyPresets</span>(keys);
+
+<span class="comment">// 或者通过属性设置</span>
+&lt;pdf-annotator key-presets='<span class="string">["姓名", "日期", "金额"]</span>'&gt;&lt;/pdf-annotator&gt;
+            </div>
+
+            <h3 style="margin-top: 15px; color: #1e293b;">7. 导出JSON文件</h3>
             <div class="code-block">
 <span class="comment">// 触发下载JSON文件</span>
 annotator.<span class="function">exportAnnotations</span>();
@@ -326,6 +337,9 @@ annotator.<span class="function">exportAnnotations</span>();
 
         // 加载示例JSON
         function loadSampleJSON() {
+            // 先设置 key 预设
+            setKeyPresets();
+            
             const sampleData = {
                 rectangles: [
                     {
@@ -362,10 +376,21 @@ annotator.<span class="function">exportAnnotations</span>();
             outputArea.textContent = JSON.stringify(sampleData, null, 2);
         }
 
+        // 设置 Key 预设
+        function setKeyPresets() {
+            const keys = ['姓名', '日期', '金额', '地址', '电话', '邮箱', '编号', '类型', '状态', '备注'];
+            annotator.setKeyPresets(keys);
+            addLog('🔑 已设置 Key 预设列表');
+            
+            // 刷新当前显示
+            annotator.updateRectanglesList();
+        }
+
         // 清空标注
         function clearAnnotations() {
             annotator.rectangles = [];
             annotator.selectedRectId = null;
+            annotator.keyUsageCount = {};
             annotator.updateRectanglesList();
             annotator.redrawRectangles();
             addLog('🗑️ 已清空所有标注');
