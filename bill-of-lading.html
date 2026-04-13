@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bill of Lading</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #e8e8e8;
+            padding: 20px;
+            font-size: 11px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: white;
+            padding: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        .bill-container {
+            border: 1px solid #000;
+            padding: 0;
+        }
+
+        /* Header Row */
+        .header-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            border-bottom: 1px solid #000;
+        }
+
+        .header-cell {
+            padding: 10px;
+            border-right: 1px solid #000;
+            font-size: 10px;
+            line-height: 1.5;
+            vertical-align: top;
+        }
+
+        .header-cell:last-child {
+            border-right: none;
+        }
+
+        .header-cell:nth-child(2) {
+            border-right: 1px solid #000;
+        }
+
+        .section-label {
+            font-size: 8px;
+            font-weight: bold;
+            margin-bottom: 3px;
+            color: #000;
+            letter-spacing: 0.5px;
+        }
+
+        .section-content {
+            font-size: 9px;
+            line-height: 1.4;
+        }
+
+        /* Logo area */
+        .logo-area {
+            text-align: center;
+            border: 2px solid #000;
+            padding: 15px 25px;
+            margin: 10px auto;
+            width: fit-content;
+            border-radius: 50%;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-text {
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 4px;
+        }
+
+        /* Title */
+        .title-row {
+            text-align: center;
+            padding: 15px 10px;
+            border-bottom: 1px solid #000;
+        }
+
+        .title {
+            font-size: 26px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            margin-bottom: 12px;
+        }
+
+        .title-description {
+            font-size: 7.5px;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: justify;
+        }
+
+        /* Main grid sections */
+        .main-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            border-bottom: 1px solid #000;
+        }
+
+        .main-cell {
+            padding: 10px;
+            border-right: 1px solid #000;
+            min-height: 70px;
+        }
+
+        .main-cell:last-child {
+            border-right: none;
+        }
+
+        /* Two column layout */
+        .two-col-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border-bottom: 1px solid #000;
+        }
+
+        .two-col-cell {
+            padding: 10px;
+            border-right: 1px solid #000;
+            min-height: 50px;
+        }
+
+        .two-col-cell:last-child {
+            border-right: none;
+            min-height: 50px;
+        }
+
+        /* Particulars header */
+        .particulars-header {
+            background: #000;
+            color: white;
+            padding: 8px 10px;
+            font-size: 8px;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 1px solid #000;
+            letter-spacing: 1.5px;
+        }
+
+        /* Particulars table */
+        .particulars-table {
+            display: grid;
+            grid-template-columns: 1fr 0.8fr 1.5fr 0.8fr 0.6fr;
+            border-bottom: 1px solid #000;
+        }
+
+        .particulars-cell {
+            padding: 12px 10px;
+            border-right: 1px solid #000;
+            font-size: 8.5px;
+            line-height: 1.6;
+            vertical-align: top;
+        }
+
+        .particulars-cell:first-child {
+            text-transform: uppercase;
+        }
+
+        .particulars-cell:last-child {
+            border-right: none;
+        }
+
+        .particulars-row-2 {
+            border-bottom: 1px solid #000;
+        }
+
+        /* Shipped on board */
+        .shipped-section {
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            border-bottom: 1px solid #000;
+        }
+
+        .shipped-cell {
+            padding: 12px 10px;
+            border-right: 1px solid #000;
+            font-size: 9px;
+            vertical-align: top;
+        }
+
+        .shipped-cell:last-child {
+            border-right: none;
+            text-align: right;
+            padding-right: 20px;
+        }
+
+        .shipped-date {
+            margin-top: 8px;
+            font-weight: bold;
+        }
+
+        /* Freight section */
+        .freight-section {
+            display: grid;
+            grid-template-columns: 1fr 0.5fr 0.5fr 1.5fr;
+            border-bottom: 1px solid #000;
+        }
+
+        .freight-cell {
+            padding: 12px 10px;
+            border-right: 1px solid #000;
+            font-size: 8.5px;
+            vertical-align: top;
+        }
+
+        .freight-cell:last-child {
+            border-right: none;
+        }
+
+        /* Bottom section */
+        .bottom-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .bottom-cell {
+            padding: 12px 10px;
+            border-right: 1px solid #000;
+            font-size: 8.5px;
+            min-height: 100px;
+            vertical-align: top;
+        }
+
+        .bottom-cell:last-child {
+            border-right: none;
+        }
+
+        .signed-text {
+            margin-top: 20px;
+        }
+
+        /* Bold labels */
+        .bold {
+            font-weight: bold;
+        }
+
+        /* Uppercase */
+        .uppercase {
+            text-transform: uppercase;
+        }
+
+        /* Small text */
+        .small {
+            font-size: 8px;
+        }
+
+        /* Center text */
+        .center {
+            text-align: center;
+        }
+
+        /* Left align */
+        .left {
+            text-align: left;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                padding: 0;
+                max-width: 100%;
+            }
+            .bill-container {
+                border: 1px solid #000;
+            }
+        }
+
+        /* Fine-tuning */
+        .section-label {
+            margin-bottom: 2px;
+        }
+
+        .header-cell .section-content {
+            font-size: 9.5px;
+        }
+
+        .shipped-cell .shipped-date {
+            font-size: 9px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="bill-container">
+            <!-- Table 1: Left-Right Layout (Shipper + Booking/BL Info + Consignee + Logo + Title) -->
+            <div style="border-bottom: 1px solid #000;">
+                <!-- Top Row: Shipper | Booking No | B/L No -->
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr;">
+                    <div style="padding: 10px; border-right: 1px solid #000; border-bottom: 1px solid #000;">
+                        <div class="section-label">SHIPPER/EXPORTER</div>
+                        <div class="section-content" style="font-weight: bold;">
+                            TECHIN TECHNOLOGY CO.,<br>
+                            2F., NO.63, ZHONGHUA 3RD RD.,<br>
+                            LINKOU DIST., NEW TAIPEI CITY 244, TAIWAN
+                        </div>
+                    </div>
+                    <div style="padding: 10px; border-right: 1px solid #000; border-bottom: 1px solid #000;">
+                        <div class="section-label">BOOKING NO:</div>
+                        <div class="section-content" style="font-weight: bold;">2317627270</div>
+                    </div>
+                    <div style="padding: 10px; border-bottom: 1px solid #000;">
+                        <div class="section-label">B/L NO:</div>
+                        <div class="section-content" style="font-weight: bold;">GZJL025091011</div>
+                    </div>
+                </div>
+
+                <!-- Main Row: Consignee | Logo | Title & Terms -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; min-height: 150px;">
+                    <div style="padding: 10px; border-right: 1px solid #000;">
+                        <div class="section-label">CONSIGNEE</div>
+                        <div class="section-content"></div>
+                    </div>
+                    <div style="padding: 20px 10px; border-right: 1px solid #000; display: flex; align-items: center; justify-content: center;">
+                        <div class="logo-area">
+                            <div class="logo-text">KMC</div>
+                        </div>
+                    </div>
+                    <div style="padding: 10px;">
+                        <div class="title" style="font-size: 20px; text-align: center; margin-top: 5px; margin-bottom: 12px;">BILL OF LADING</div>
+                        <div class="title-description">
+                            RECEIVED in apparent good order and condition except as otherwise noted the total number of containers or other packages units enumerated below for transportation from the place of receipt to the place of delivery subject to the terms hereof.
+                        </div>
+                        <div class="title-description" style="margin-top: 8px;">
+                            One of the signed Bill of Lading must be surrendered duly endorsed in exchange for the Goods or delivery order. On presentation of Bill of lading (duly endorsed) to the Delivery Agent by the Holder the rights and liabilities arising in accordance with the terms hereof shall (without prejudice to any rule of common law or statute rendering such binding in the Merchant) become binding in all respects between the Carrier and the Holder as though the contract evidenced hereby had been made between them.
+                        </div>
+                        <div class="title-description" style="margin-top: 8px;">
+                            IN WITNESS Whereof the number of original Bills of Lading stated below all of this tenor and date one of which being accomplished the others to stand void.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notify Party Row -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                    <div style="padding: 10px; border-right: 1px solid #000;">
+                        <div class="section-label">NOTIFY PARTY</div>
+                        <div class="section-content">SAME AS CONSIGNEE</div>
+                    </div>
+                    <div style="padding: 10px;"></div>
+                </div>
+            </div>
+
+            <!-- Table 2: Transport Details -->
+            <div style="border-bottom: 1px solid #000;">
+                <!-- Pre-carriage & Receipt -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr;">
+                    <div style="padding: 10px; border-right: 1px solid #000; border-bottom: 1px solid #000;">
+                        <div class="section-label">PRE-CARRIAGE BY</div>
+                        <div class="section-content"></div>
+                    </div>
+                    <div style="padding: 10px; border-right: 1px solid #000; border-bottom: 1px solid #000;">
+                        <div class="section-label">PLACE OF RECEIPT</div>
+                        <div class="section-content">YANTIAN,CHINA</div>
+                    </div>
+                    <div style="padding: 10px; border-bottom: 1px solid #000;"></div>
+                </div>
+
+                <!-- Vessel & Loading -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr;">
+                    <div style="padding: 10px; border-right: 1px solid #000; border-bottom: 1px solid #000;">
+                        <div class="section-label">OCEAN VESSEL & VOY.NO</div>
+                        <div class="section-content">OOCL UTAH V.081E</div>
+                    </div>
+                    <div style="padding: 10px; border-right: 1px solid #000; border-bottom: 1px solid #000;">
+                        <div class="section-label">PORT OF LOADING</div>
+                        <div class="section-content">YANTIAN,CHINA</div>
+                    </div>
+                    <div style="padding: 10px; border-bottom: 1px solid #000;"></div>
+                </div>
+
+                <!-- Discharge & Delivery -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr;">
+                    <div style="padding: 10px; border-right: 1px solid #000;">
+                        <div class="section-label">PORT OF DISCHARGE</div>
+                        <div class="section-content">LONG BEACH,CA</div>
+                    </div>
+                    <div style="padding: 10px; border-right: 1px solid #000;">
+                        <div class="section-label">PLACE OF DELIVERY</div>
+                        <div class="section-content">LONG BEACH,CA</div>
+                    </div>
+                    <div style="padding: 10px;">
+                        <div class="section-label">FINAL DESTINATION</div>
+                        <div class="section-content">LONG BEACH,CA</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table 3: Particulars (Goods Description) -->
+            <div>
+            <div class="particulars-header">PARTICULARS FURNISHED BY SHIPPER</div>
+
+            <!-- Particulars Table Header -->
+            <div style="display: grid; grid-template-columns: 1fr 0.8fr 1.5fr 0.8fr 0.6fr; border-bottom: 1px solid #000;">
+                <div style="padding: 8px 10px; border-right: 1px solid #000; font-size: 7.5px; font-weight: bold; line-height: 1.3;">MARKS AND NUMBERS</div>
+                <div style="padding: 8px 10px; border-right: 1px solid #000; font-size: 7.5px; font-weight: bold; line-height: 1.3;">NO. OF PACKAGES</div>
+                <div style="padding: 8px 10px; border-right: 1px solid #000; font-size: 7.5px; font-weight: bold; line-height: 1.3;">KIND OF PACKAGES; DESCRIPTION OF GOODS</div>
+                <div style="padding: 8px 10px; border-right: 1px solid #000; font-size: 7.5px; font-weight: bold; line-height: 1.3;">GROSS WEIGHT</div>
+                <div style="padding: 8px 10px; font-size: 7.5px; font-weight: bold; line-height: 1.3;">MEASUREMENT</div>
+            </div>
+
+            <!-- Particulars Row 1 -->
+            <div class="particulars-table" style="min-height: 130px;">
+                <div class="particulars-cell" style="font-weight: bold;">P04125B04</div>
+                <div class="particulars-cell" style="font-weight: bold;">813 PACKAGES</div>
+                <div class="particulars-cell">
+                    1X40HQ CY-CY S.T.C.<br>
+                    COMPUTER CASE<br>
+                    COMPUTER CASE SPARE PART-CORRUGATED BOX<br>
+                    COMPUTER CASE FAN
+                </div>
+                <div class="particulars-cell" style="font-weight: bold;">8039.580 KGS</div>
+                <div class="particulars-cell" style="font-weight: bold;">67.840CBM</div>
+            </div>
+
+            <!-- Particulars Row 2 - Shipped on board -->
+            <div class="shipped-section">
+                <div class="shipped-cell">
+                    <div style="margin-top: 15px; font-size: 9px; line-height: 1.5;">
+                        SELL#4254809 / COLOUR#8097 1X40HQ / CY-CY / 813PACKAGES / 8039.580KGS / 67.840CBM
+                    </div>
+                    <div style="margin-top: 10px; font-size: 8px; line-height: 1.5;">
+                        THE SHIPMENT CONTAINS NO SOLID WOOD<br>PACKING MATERIALS
+                    </div>
+                </div>
+                <div class="shipped-cell">
+                    <div style="margin-top: 15px; font-size: 9px; line-height: 1.5;">SHIPPED ON BOARD</div>
+                    <div class="shipped-date" style="margin-top: 8px; font-weight: bold; font-size: 9px;">JAN.08,2026</div>
+                </div>
+            </div>
+
+            <!-- Freight & Charges -->
+            <div class="freight-section">
+                <div class="freight-cell">
+                    <div class="section-label">FREIGHT & CHARGES</div>
+                    <div class="section-content" style="margin-top: 4px;"></div>
+                </div>
+                <div class="freight-cell">
+                    <div class="section-label">PREPAID</div>
+                    <div class="section-content" style="margin-top: 4px;"></div>
+                </div>
+                <div class="freight-cell">
+                    <div class="section-label">COLLECT</div>
+                    <div class="section-content" style="margin-top: 4px; font-weight: bold;">FREIGHT COLLECT</div>
+                </div>
+                <div class="freight-cell" style="font-size: 8px; line-height: 1.6; text-align: justify;">
+                    RECEIVED by the Carrier the Goods as specified above in apparent good order and condition unless otherwise stated, to be transported to such place as agreed, authorized or permitted herein and subject to all the terms and conditions appearing on the front and reverse of this Bill of Lading, any local privileges and customs notwithstanding.
+                    <br><br>
+                    The particulars given above as statistics by the shipper and the weight, measure, quantity, condition, contents and value of the Goods are unknown to the Carrier.
+                    <br><br>
+                    IN WITNESS WHEREOF the number of original Bills of Lading stated on this side have been signed, all of this tenor and date, one of which being accomplished, the other(s) to be void. If required by the Carrier, one of the signed original Bills of Lading must be surrendered duly endorsed in exchange for the Goods or delivery order.
+                </div>
+            </div>
+
+            <!-- Table 3 Footer: Bottom Section -->
+            <div style="border-top: 1px solid #000; display: grid; grid-template-columns: 1fr 1fr 1fr;">
+                <div class="bottom-cell" style="border-right: 1px solid #000;">
+                    <div class="section-label" style="margin-top: 15px; font-size: 7.5px;">Number of Original B/L</div>
+                    <div style="margin-top: 6px; font-size: 8.5px; font-weight: bold;">THREE(3)</div>
+                </div>
+                <div class="bottom-cell" style="border-right: 1px solid #000;">
+                    <div class="section-label" style="margin-top: 15px; font-size: 7.5px;">DATE OF ISSUE</div>
+                    <div style="margin-top: 6px; font-size: 8.5px;"></div>
+                </div>
+                <div class="bottom-cell" style="border-right: none;">
+                    <div style="margin-top: 15px; font-size: 7.5px; line-height: 1.5;">SIGNED ON BEHALF OF THE CARRIER:</div>
+                    <div style="margin-top: 40px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

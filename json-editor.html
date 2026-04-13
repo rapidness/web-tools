@@ -1,0 +1,2402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON 在线解析格式化验证</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f3f4;
+            --bg-hover: #e8eaed;
+            --bg-editor: #ffffff;
+            --bg-line-highlight: #fff3cd;
+            --bg-line-error: #ffebee;
+            --text-primary: #202124;
+            --text-secondary: #5f6368;
+            --text-muted: #9aa0a6;
+            --accent-color: #1a73e8;
+            --accent-hover: #1557b0;
+            --success-color: #34a853;
+            --error-color: #ea4335;
+            --warning-color: #fbbc04;
+            --info-color: #4285f4;
+            --border-color: #dadce0;
+            --border-light: #e8eaed;
+            --string-color: #c53929;
+            --number-color: #1967d2;
+            --boolean-color: #188038;
+            --null-color: #5f6368;
+            --key-color: #3c4043;
+            --line-number-color: #9aa0a6;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);     
+        }
+
+        /* 头部菜单栏 */
+        .header {
+            height: 60px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            flex-shrink: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+        }
+
+        .logo i {
+            color: var(--accent-color);
+            font-size: 1.3rem;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn {
+            padding: 7px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning-color);
+            color: #fff;
+            border-color: var(--warning-color);
+        }
+
+        .btn-warning:hover {
+            background: #f9a825;
+            border-color: #f9a825;
+            color: #fff;
+        }
+
+        .btn-icon {
+            padding: 7px 10px;
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 0.75rem;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        /* 主区域 */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px - 40px);
+            overflow: hidden;
+        }
+
+        /* 左右分栏 */
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            min-width: 0;
+        }
+
+        .panel-left {
+            border-right: 1px solid var(--border-color);
+        }
+
+        .panel-header {
+            height: 42px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 14px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 编辑器容器 */
+        .editor-wrapper {
+            display: flex;
+            height: 100%;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        /* 行号区域 */
+        .line-numbers {
+            width: 52px;
+            background: var(--bg-tertiary);
+            border-right: 1px solid var(--border-light);
+            padding: 10px 6px;
+            text-align: right;
+            color: var(--line-number-color);
+            font-size: 12px;
+            line-height: 1.7;
+            user-select: none;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .line-number {
+            height: 22.1px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 4px;
+        }
+
+        .line-number.error {
+            background: var(--error-color);
+            color: white;
+            border-radius: 3px;
+            margin: 0 -4px;
+            padding-right: 8px;
+        }
+
+        /* 编辑器区域 */
+        .editor-area {
+            flex: 1;
+            position: relative;
+            overflow: auto;
+        }
+
+        .json-editor {
+            width: 100%;
+            min-height: 100%;
+            background: var(--bg-editor);
+            color: var(--text-primary);
+            border: none;
+            outline: none;
+            padding: 10px 14px;
+            font-family: inherit;
+            font-size: inherit;
+            line-height: 1.7;
+            resize: none;
+            tab-size: 2;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .json-editor::selection {
+            background: rgba(26, 115, 232, 0.2);
+        }
+
+        /* 右侧树形区域 */
+        .tree-container {
+            padding: 14px 18px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            height: 100%;
+            overflow: auto;
+        }
+
+        .tree-node {
+            position: relative;
+        }
+
+        .node-content {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            min-height: 24px;
+        }
+
+        .node-content:hover {
+            background: var(--bg-hover);
+        }
+
+        .node-toggle {
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 11px;
+            transition: transform 0.2s ease;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .node-toggle:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .node-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .node-toggle-placeholder {
+            width: 18px;
+            flex-shrink: 0;
+        }
+
+        .node-key {
+            color: var(--key-color);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .node-separator {
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .node-value {
+            cursor: text;
+            border-radius: 3px;
+            padding: 0 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .node-value:hover {
+            background: var(--bg-hover);
+        }
+
+        .node-value.string {
+            color: var(--string-color);
+        }
+
+        .node-value.number {
+            color: var(--number-color);
+        }
+
+        .node-value.boolean {
+            color: var(--boolean-color);
+        }
+
+        .node-value.null {
+            color: var(--null-color);
+            cursor: pointer;
+        }
+
+        .node-value.null:hover {
+            background: var(--bg-hover);
+        }
+
+        .node-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 3px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .node-content:hover .node-actions {
+            opacity: 1;
+        }
+
+        .node-action-btn {
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 11px;
+            transition: all 0.2s ease;
+        }
+
+        .node-action-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .node-children {
+            margin-left: 22px;
+            border-left: 1px solid var(--border-light);
+            padding-left: 6px;
+        }
+
+        .node-children.collapsed {
+            display: none;
+        }
+
+        .bracket {
+            color: var(--text-muted);
+        }
+
+        .ellipsis {
+            color: var(--text-muted);
+            font-style: italic;
+            margin: 0 4px;
+        }
+
+        /* 编辑输入框 */
+        .edit-input {
+            background: var(--bg-secondary);
+            border: 2px solid var(--accent-color);
+            border-radius: 4px;
+            padding: 1px 6px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: inherit;
+            outline: none;
+            min-width: 60px;
+            line-height: 1.5;
+        }
+
+        .edit-input.key {
+            color: var(--key-color);
+        }
+
+        .edit-input.string {
+            color: var(--string-color);
+        }
+
+        .edit-input.number {
+            color: var(--number-color);
+        }
+
+        /* 底部状态栏 */
+        .footer {
+            height: 40px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .footer-left {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--success-color);
+        }
+
+        .status-dot.error {
+            background: var(--error-color);
+        }
+
+        .status-text {
+            color: var(--success-color);
+            font-weight: 500;
+        }
+
+        .status-text.error {
+            color: var(--error-color);
+        }
+
+        .stats {
+            display: flex;
+            gap: 16px;
+        }
+
+        .stat-item {
+            display: flex;
+            gap: 4px;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* 错误提示 */
+        .error-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .error-icon {
+            font-size: 52px;
+            color: var(--error-color);
+            margin-bottom: 18px;
+        }
+
+        .error-title {
+            font-size: 1.3rem;
+            color: var(--error-color);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .error-message {
+            color: var(--text-secondary);
+            max-width: 420px;
+            line-height: 1.6;
+            font-size: 0.9rem;
+        }
+
+        .error-location {
+            margin-top: 18px;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
+        }
+
+        .error-actions {
+            margin-top: 22px;
+            display: flex;
+            gap: 10px;
+        }
+
+        /* 提示消息 */
+        .toast {
+            position: fixed;
+            bottom: 65px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            border: 1px solid var(--border-color);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success-color);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--error-color);
+        }
+
+        .toast.warning {
+            border-left: 4px solid var(--warning-color);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+            }
+
+            .panel-left {
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                height: 50%;
+            }
+
+            .panel-right {
+                height: 50%;
+            }
+
+            .header {
+                flex-wrap: wrap;
+                height: auto;
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .header-left {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .toolbar {
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+
+            .btn span {
+                display: none;
+            }
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* 空状态 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 40px;
+        }
+
+        .empty-state i {
+            font-size: 52px;
+            margin-bottom: 18px;
+            opacity: 0.4;
+            color: var(--accent-color);
+        }
+
+        .empty-state p {
+            font-size: 0.9rem;
+            max-width: 280px;
+            line-height: 1.6;
+        }
+
+        /* 快捷键提示 */
+        .shortcut-hint {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .shortcut {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        kbd {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.68rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部菜单栏 -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <i class="fas fa-code"></i>
+                <span>JSON 在线解析格式化验证</span>
+            </div>
+            <div class="toolbar">
+                <!-- 按钮已移到左侧标题栏 -->
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" title="上传JSON文件">
+                <i class="fas fa-upload"></i>
+                <span>上传</span>
+            </button>
+            <input type="file" id="fileInput" class="file-input" accept=".json" onchange="handleFileUpload(event)">
+        </div>
+    </header>
+
+    <!-- 主区域 -->
+    <div class="main-container">
+        <!-- 左侧编辑器 -->
+        <div class="panel panel-left">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="fas fa-edit"></i>
+                    <span>JSON 编辑器</span>
+                </div>
+                <div class="panel-actions">
+                    <button class="btn btn-sm" onclick="formatJSON()" title="格式化">
+                        <i class="fas fa-align-left"></i>
+                        <span>格式化</span>
+                    </button>
+                    <button class="btn btn-sm" onclick="minifyJSON()" title="压缩">
+                        <i class="fas fa-compress-alt"></i>
+                        <span>压缩</span>
+                    </button>
+                    <button class="btn btn-sm" onclick="unescapeJSON()" title="去转义">
+                        <i class="fas fa-remove-format"></i>
+                        <span>去转义</span>
+                    </button>
+                    <button class="btn btn-sm" onclick="fixJSON()" title="修复">
+                        <i class="fas fa-wrench"></i>
+                        <span>修复</span>
+                    </button>
+                    <button class="btn btn-sm" onclick="copyAll()" title="复制">
+                        <i class="fas fa-copy"></i>
+                        <span>复制</span>
+                    </button>
+                    <button class="btn btn-icon" onclick="undo()" id="undoBtn" title="撤销" disabled>
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button class="btn btn-icon" onclick="redo()" id="redoBtn" title="重做" disabled>
+                        <i class="fas fa-redo"></i>
+                    </button>
+                    <button class="btn btn-icon" onclick="clearEditor()" title="清空">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="panel-content">
+                <div class="editor-wrapper">
+                    <div class="line-numbers" id="lineNumbers"></div>
+                    <div class="editor-area">
+                        <textarea class="json-editor" id="jsonEditor" placeholder="在此输入JSON..." spellcheck="false"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧树形视图 -->
+        <div class="panel panel-right">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="fas fa-sitemap"></i>
+                    <span>可视化树形结构</span>
+                </div>
+                <div class="panel-actions">
+                    <button class="btn btn-icon" onclick="refreshTree()" title="刷新">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="panel-content">
+                <div class="tree-container" id="treeContainer">
+                    <div class="empty-state">
+                        <i class="fas fa-project-diagram"></i>
+                        <p>在左侧输入JSON，此处将显示可视化树形结构</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部状态栏 -->
+    <footer class="footer">
+        <div class="footer-left">
+            <div class="status-indicator" id="statusIndicator">
+                <div class="status-dot"></div>
+                <span class="status-text">JSON 有效</span>
+            </div>
+            <div class="stats" id="stats">
+                <div class="stat-item">
+                    <span class="stat-label">节点:</span>
+                    <span class="stat-value" id="nodeCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">类型:</span>
+                    <span class="stat-value" id="rootType">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">字符:</span>
+                    <span class="stat-value" id="charCount">0</span>
+                </div>
+            </div>
+        </div>
+        <div class="footer-right">
+            <div class="shortcut-hint">
+                <span class="shortcut"><kbd>Ctrl</kbd>+<kbd>Z</kbd>撤销</span>
+                <span class="shortcut"><kbd>Ctrl</kbd>+<kbd>Y</kbd>重做</span>
+                <span class="shortcut"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>格式化</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 提示消息 -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">操作成功</span>
+    </div>
+
+    <script>
+        // ==================== 全局状态 ====================
+        let currentJSON = null;
+        let parseError = null;
+        let nodePositions = new Map();
+        let expandedNodes = new Set();
+        let nodeCounter = 0;
+        let debounceTimer = null;
+        let errorLine = -1;
+
+        // 历史记录（用于撤销/重做）
+        const history = {
+            stack: [],
+            index: -1,
+            maxSize: 50
+        };
+
+        // ==================== 默认示例数据 ====================
+        //const defaultJSON  ;
+
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            const editor = document.getElementById('jsonEditor');
+            //editor.value = JSON.stringify(defaultJSON, null, 2);
+            
+            // 保存初始状态到历史记录
+            saveToHistory(editor.value);
+            
+            parseAndRender();
+            updateLineNumbers();
+
+            // 监听输入变化（防抖300ms）
+            editor.addEventListener('input', () => {
+                updateLineNumbers();
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    parseAndRender();
+                    saveToHistory(editor.value);
+                }, 300);
+            });
+
+            // 监听粘贴事件
+            editor.addEventListener('paste', () => {
+                setTimeout(() => {
+                    updateLineNumbers();
+                    parseAndRender();
+                    saveToHistory(editor.value);
+                }, 0);
+            });
+
+            // 监听滚动同步
+            editor.addEventListener('scroll', () => {
+                const lineNumbers = document.getElementById('lineNumbers');
+                lineNumbers.scrollTop = editor.scrollTop;
+            });
+
+            // 键盘快捷键
+            editor.addEventListener('keydown', (e) => {
+                // Tab键插入空格
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const start = editor.selectionStart;
+                    const end = editor.selectionEnd;
+                    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+                    editor.selectionStart = editor.selectionEnd = start + 2;
+                    saveToHistory(editor.value);
+                }
+                
+                // Ctrl+Z 撤销
+                if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                }
+                
+                // Ctrl+Y 重做
+                if (e.ctrlKey && e.key === 'y') {
+                    e.preventDefault();
+                    redo();
+                }
+                
+                // Ctrl+Shift+F 格式化
+                if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+                    e.preventDefault();
+                    formatJSON();
+                }
+            });
+        });
+
+        // ==================== 历史记录管理 ====================
+        function saveToHistory(content) {
+            // 如果当前不是最新状态，删除后面的历史
+            if (history.index < history.stack.length - 1) {
+                history.stack = history.stack.slice(0, history.index + 1);
+            }
+            
+            // 如果内容相同，不保存
+            if (history.stack.length > 0 && history.stack[history.stack.length - 1] === content) {
+                return;
+            }
+            
+            history.stack.push(content);
+            
+            // 限制历史记录大小
+            if (history.stack.length > history.maxSize) {
+                history.stack.shift();
+            } else {
+                history.index++;
+            }
+            
+            updateHistoryButtons();
+        }
+
+        function undo() {
+            if (history.index > 0) {
+                history.index--;
+                const editor = document.getElementById('jsonEditor');
+                editor.value = history.stack[history.index];
+                updateLineNumbers();
+                parseAndRender();
+                updateHistoryButtons();
+                showToast('已撤销');
+            }
+        }
+
+        function redo() {
+            if (history.index < history.stack.length - 1) {
+                history.index++;
+                const editor = document.getElementById('jsonEditor');
+                editor.value = history.stack[history.index];
+                updateLineNumbers();
+                parseAndRender();
+                updateHistoryButtons();
+                showToast('已重做');
+            }
+        }
+
+        function updateHistoryButtons() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            
+            undoBtn.disabled = history.index <= 0;
+            redoBtn.disabled = history.index >= history.stack.length - 1;
+        }
+
+        // ==================== 更新行号 ====================
+        function updateLineNumbers() {
+            const editor = document.getElementById('jsonEditor');
+            const lineNumbers = document.getElementById('lineNumbers');
+            const lines = editor.value.split('\n');
+            
+            let html = '';
+            for (let i = 0; i < lines.length; i++) {
+                const lineClass = (i + 1 === errorLine) ? 'line-number error' : 'line-number';
+                html += `<div class="${lineClass}">${i + 1}</div>`;
+            }
+            
+            lineNumbers.innerHTML = html;
+        }
+
+        // ==================== 自定义JSON解析器（带位置索引）====================
+        class JSONParserWithPosition {
+            constructor(text) {
+                this.text = text;
+                this.pos = 0;
+                this.line = 1;
+                this.column = 1;
+            }
+
+            parse() {
+                this.skipWhitespace();
+                const startPos = this.pos;
+                const value = this.parseValue();
+                this.skipWhitespace();
+                
+                if (this.pos < this.text.length) {
+                    throw this.error('多余的字符');
+                }
+
+                return {
+                    value,
+                    start: startPos,
+                    end: this.pos
+                };
+            }
+
+            parseValue() {
+                this.skipWhitespace();
+                const startPos = this.pos;
+                const char = this.peek();
+
+                if (char === '{') {
+                    return this.parseObject(startPos);
+                } else if (char === '[') {
+                    return this.parseArray(startPos);
+                } else if (char === '"') {
+                    return this.parseString(startPos);
+                } else if (char === 't' || char === 'f') {
+                    return this.parseBoolean(startPos);
+                } else if (char === 'n') {
+                    return this.parseNull(startPos);
+                } else if (char === '-' || (char >= '0' && char <= '9')) {
+                    return this.parseNumber(startPos);
+                } else if (char === '') {
+                    throw this.error('意外的结束');
+                } else {
+                    throw this.error('意外的字符: ' + char);
+                }
+            }
+
+            parseObject(startPos) {
+                const properties = [];
+                
+                this.expect('{');
+                this.skipWhitespace();
+
+                if (this.peek() === '}') {
+                    this.pos++;
+                    return {
+                        type: 'object',
+                        value: {},
+                        properties,
+                        start: startPos,
+                        end: this.pos
+                    };
+                }
+
+                while (true) {
+                    this.skipWhitespace();
+                    const propStart = this.pos;
+                    
+                    if (this.peek() !== '"') {
+                        throw this.error('期望字符串键');
+                    }
+
+                    const keyResult = this.parseString(this.pos);
+                    this.skipWhitespace();
+                    this.expect(':');
+                    this.skipWhitespace();
+                    
+                    const valueResult = this.parseValue();
+                    
+                    const prop = {
+                        key: keyResult.value,
+                        keyStart: keyResult.start,
+                        keyEnd: keyResult.end,
+                        value: valueResult,
+                        start: propStart,
+                        end: valueResult.end
+                    };
+                    
+                    properties.push(prop);
+
+                    this.skipWhitespace();
+                    const char = this.peek();
+                    
+                    if (char === '}') {
+                        this.pos++;
+                        break;
+                    } else if (char === ',') {
+                        this.pos++;
+                    } else if (char === '') {
+                        throw this.error('对象未闭合，期望 "}"');
+                    } else {
+                        throw this.error('期望 "," 或 "}"');
+                    }
+                }
+
+                return {
+                    type: 'object',
+                    value: {},
+                    properties,
+                    start: startPos,
+                    end: this.pos
+                };
+            }
+
+            parseArray(startPos) {
+                const items = [];
+                
+                this.expect('[');
+                this.skipWhitespace();
+
+                if (this.peek() === ']') {
+                    this.pos++;
+                    return {
+                        type: 'array',
+                        value: [],
+                        items,
+                        start: startPos,
+                        end: this.pos
+                    };
+                }
+
+                while (true) {
+                    this.skipWhitespace();
+                    const itemStart = this.pos;
+                    const item = this.parseValue();
+                    items.push({
+                        ...item,
+                        index: items.length,
+                        start: itemStart,
+                        end: item.end
+                    });
+
+                    this.skipWhitespace();
+                    const char = this.peek();
+                    
+                    if (char === ']') {
+                        this.pos++;
+                        break;
+                    } else if (char === ',') {
+                        this.pos++;
+                    } else if (char === '') {
+                        throw this.error('数组未闭合，期望 "]"');
+                    } else {
+                        throw this.error('期望 "," 或 "]"');
+                    }
+                }
+
+                return {
+                    type: 'array',
+                    value: [],
+                    items,
+                    start: startPos,
+                    end: this.pos
+                };
+            }
+
+            parseString(startPos) {
+                this.expect('"');
+                let str = '';
+                
+                while (this.pos < this.text.length) {
+                    const char = this.text[this.pos];
+                    
+                    if (char === '"') {
+                        this.pos++;
+                        return {
+                            type: 'string',
+                            value: str,
+                            start: startPos,
+                            end: this.pos
+                        };
+                    } else if (char === '\\') {
+                        this.pos++;
+                        if (this.pos >= this.text.length) {
+                            throw this.error('字符串未终止');
+                        }
+                        const escapeChar = this.text[this.pos];
+                        switch (escapeChar) {
+                            case '"': str += '"'; break;
+                            case '\\': str += '\\'; break;
+                            case '/': str += '/'; break;
+                            case 'b': str += '\b'; break;
+                            case 'f': str += '\f'; break;
+                            case 'n': str += '\n'; break;
+                            case 'r': str += '\r'; break;
+                            case 't': str += '\t'; break;
+                            case 'u':
+                                if (this.pos + 4 >= this.text.length) {
+                                    throw this.error('不完整的Unicode转义');
+                                }
+                                const hex = this.text.substr(this.pos + 1, 4);
+                                if (!/^[0-9a-fA-F]{4}$/.test(hex)) {
+                                    throw this.error('无效的Unicode转义');
+                                }
+                                str += String.fromCharCode(parseInt(hex, 16));
+                                this.pos += 4;
+                                break;
+                            default:
+                                str += escapeChar;
+                        }
+                        this.pos++;
+                    } else if (char < ' ') {
+                        throw this.error('字符串中不允许控制字符');
+                    } else {
+                        str += char;
+                        this.pos++;
+                    }
+                }
+                
+                throw this.error('字符串未终止');
+            }
+
+            parseNumber(startPos) {
+                const numStart = this.pos;
+                
+                if (this.peek() === '-') {
+                    this.pos++;
+                }
+                
+                if (this.peek() === '0') {
+                    this.pos++;
+                } else if (this.peek() >= '1' && this.peek() <= '9') {
+                    this.pos++;
+                    while (this.peek() >= '0' && this.peek() <= '9') {
+                        this.pos++;
+                    }
+                } else {
+                    throw this.error('无效的数字');
+                }
+                
+                if (this.peek() === '.') {
+                    this.pos++;
+                    if (this.peek() < '0' || this.peek() > '9') {
+                        throw this.error('数字的小数部分无效');
+                    }
+                    while (this.peek() >= '0' && this.peek() <= '9') {
+                        this.pos++;
+                    }
+                }
+                
+                if (this.peek() === 'e' || this.peek() === 'E') {
+                    this.pos++;
+                    if (this.peek() === '+' || this.peek() === '-') {
+                        this.pos++;
+                    }
+                    if (this.peek() < '0' || this.peek() > '9') {
+                        throw this.error('数字的指数部分无效');
+                    }
+                    while (this.peek() >= '0' && this.peek() <= '9') {
+                        this.pos++;
+                    }
+                }
+                
+                const numStr = this.text.substring(numStart, this.pos);
+                const value = parseFloat(numStr);
+                
+                return {
+                    type: 'number',
+                    value: value,
+                    start: startPos,
+                    end: this.pos
+                };
+            }
+
+            parseBoolean(startPos) {
+                if (this.text.substr(this.pos, 4) === 'true') {
+                    this.pos += 4;
+                    return {
+                        type: 'boolean',
+                        value: true,
+                        start: startPos,
+                        end: this.pos
+                    };
+                } else if (this.text.substr(this.pos, 5) === 'false') {
+                    this.pos += 5;
+                    return {
+                        type: 'boolean',
+                        value: false,
+                        start: startPos,
+                        end: this.pos
+                    };
+                } else {
+                    throw this.error('无效的布尔值');
+                }
+            }
+
+            parseNull(startPos) {
+                if (this.text.substr(this.pos, 4) === 'null') {
+                    this.pos += 4;
+                    return {
+                        type: 'null',
+                        value: null,
+                        start: startPos,
+                        end: this.pos
+                    };
+                } else {
+                    throw this.error('无效的null值');
+                }
+            }
+
+            skipWhitespace() {
+                while (this.pos < this.text.length) {
+                    const char = this.text[this.pos];
+                    if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
+                        if (char === '\n') {
+                            this.line++;
+                            this.column = 1;
+                        } else {
+                            this.column++;
+                        }
+                        this.pos++;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            peek() {
+                return this.pos < this.text.length ? this.text[this.pos] : '';
+            }
+
+            expect(expected) {
+                if (this.peek() !== expected) {
+                    throw this.error(`期望 "${expected}" 但得到 "${this.peek() || 'EOF'}"`);
+                }
+                this.pos++;
+            }
+
+            error(message) {
+                return new Error(`第 ${this.line} 行第 ${this.column} 列: ${message}`);
+            }
+        }
+
+        // ==================== 解析并渲染 ====================
+        function parseAndRender() {
+            const editor = document.getElementById('jsonEditor');
+            const text = editor.value;
+            
+            errorLine = -1;
+            
+            if (!text.trim()) {
+                showEmptyState();
+                updateStatus(true, 0, '-', 0);
+                updateLineNumbers();
+                return;
+            }
+
+            try {
+                const parser = new JSONParserWithPosition(text);
+                const result = parser.parse();
+                
+                // FIX: 使用 result.value 而不是 result
+                currentJSON = result.value;
+                parseError = null;
+                nodePositions.clear();
+                nodeCounter = 0;
+                
+                const treeContainer = document.getElementById('treeContainer');
+                treeContainer.innerHTML = '';
+                
+                // FIX: 传入 result.value 给 renderNode
+                const node = renderNode(result.value, '', true);
+                treeContainer.appendChild(node);
+                
+                const stats = calculateStats(result.value);
+                updateStatus(true, stats.nodeCount, stats.rootType, text.length);
+            } catch (error) {
+                parseError = error;
+                
+                // 提取错误行号
+                const match = error.message.match(/第 (\d+) 行/);
+                if (match) {
+                    errorLine = parseInt(match[1]);
+                }
+                
+                showError(error);
+                updateStatus(false, 0, '-', text.length);
+            }
+            
+            updateLineNumbers();
+        }
+
+        // ==================== 渲染树节点 ====================
+        function renderNode(nodeData, key, isRoot = false, isArrayItem = false) {
+            const nodeId = `node-${nodeCounter++}`;
+            nodePositions.set(nodeId, {
+                start: nodeData.start,
+                end: nodeData.end
+            });
+
+            const nodeEl = document.createElement('div');
+            nodeEl.className = 'tree-node';
+            nodeEl.id = nodeId;
+
+            const contentEl = document.createElement('div');
+            contentEl.className = 'node-content';
+            
+            // 点击高亮左侧
+            contentEl.addEventListener('click', (e) => {
+                if (!e.target.closest('.node-actions') && !e.target.closest('.edit-input')) {
+                    highlightInEditor(nodeData.start, nodeData.end);
+                }
+            });
+
+            const hasChildren = nodeData.type === 'object' || nodeData.type === 'array';
+            const childCount = hasChildren ? 
+                (nodeData.type === 'object' ? (nodeData.properties || []).length : (nodeData.items || []).length) : 0;
+            const isEmpty = childCount === 0;
+
+            // 折叠/展开图标
+            if (hasChildren) {
+                const toggleEl = document.createElement('span');
+                toggleEl.className = isEmpty ? 'node-toggle-placeholder' : 'node-toggle';
+                if (!isEmpty) {
+                    toggleEl.innerHTML = '<i class="fas fa-caret-down"></i>';
+                    toggleEl.addEventListener('click', () => toggleNode(nodeId));
+                }
+                contentEl.appendChild(toggleEl);
+            } else {
+                const placeholder = document.createElement('span');
+                placeholder.className = 'node-toggle-placeholder';
+                contentEl.appendChild(placeholder);
+            }
+
+            // 键名
+            if (key !== '') {
+                const keyEl = document.createElement('span');
+                keyEl.className = 'node-key';
+                keyEl.textContent = isArrayItem ? key : `"${key}"`;
+                keyEl.title = '点击编辑键名';
+                keyEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    editKey(nodeId, keyEl, key, nodeData);
+                });
+                contentEl.appendChild(keyEl);
+
+                const separator = document.createElement('span');
+                separator.className = 'node-separator';
+                separator.textContent = ': ';
+                contentEl.appendChild(separator);
+            }
+
+            // 值
+            if (nodeData.type === 'object') {
+                const bracketEl = document.createElement('span');
+                bracketEl.className = 'bracket';
+                bracketEl.textContent = '{';
+                contentEl.appendChild(bracketEl);
+
+                if (isEmpty) {
+                    const closeBracket = document.createElement('span');
+                    closeBracket.className = 'bracket';
+                    closeBracket.textContent = '}';
+                    contentEl.appendChild(closeBracket);
+                } else {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'ellipsis';
+                    ellipsis.textContent = `${childCount} 项`;
+                    contentEl.appendChild(ellipsis);
+
+                    const closeBracket = document.createElement('span');
+                    closeBracket.className = 'bracket';
+                    closeBracket.textContent = '}';
+                    contentEl.appendChild(closeBracket);
+                }
+            } else if (nodeData.type === 'array') {
+                const bracketEl = document.createElement('span');
+                bracketEl.className = 'bracket';
+                bracketEl.textContent = '[';
+                contentEl.appendChild(bracketEl);
+
+                if (isEmpty) {
+                    const closeBracket = document.createElement('span');
+                    closeBracket.className = 'bracket';
+                    closeBracket.textContent = ']';
+                    contentEl.appendChild(closeBracket);
+                } else {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'ellipsis';
+                    ellipsis.textContent = `${childCount} 项`;
+                    contentEl.appendChild(ellipsis);
+
+                    const closeBracket = document.createElement('span');
+                    closeBracket.className = 'bracket';
+                    closeBracket.textContent = ']';
+                    contentEl.appendChild(closeBracket);
+                }
+            } else {
+                const valueEl = document.createElement('span');
+                valueEl.className = `node-value ${nodeData.type}`;
+                valueEl.textContent = formatValue(nodeData);
+                valueEl.title = '点击编辑值';
+                valueEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    editValue(nodeId, valueEl, nodeData);
+                });
+                contentEl.appendChild(valueEl);
+            }
+
+            // 操作按钮
+            const actionsEl = document.createElement('div');
+            actionsEl.className = 'node-actions';
+
+            // 添加按钮（仅对象和数组）
+            if (hasChildren) {
+                const addBtn = document.createElement('button');
+                addBtn.className = 'node-action-btn';
+                addBtn.innerHTML = '<i class="fas fa-plus"></i>';
+                addBtn.title = nodeData.type === 'object' ? '添加属性' : '添加元素';
+                addBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    addNode(nodeId, nodeData);
+                });
+                actionsEl.appendChild(addBtn);
+            }
+
+            // 复制按钮
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'node-action-btn';
+            copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+            copyBtn.title = '复制节点';
+            copyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                copyNode(nodeData);
+            });
+            actionsEl.appendChild(copyBtn);
+
+            // 删除按钮（非根节点）
+            if (!isRoot) {
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'node-action-btn';
+                deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                deleteBtn.title = '删除节点';
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteNode(nodeId, key);
+                });
+                actionsEl.appendChild(deleteBtn);
+            }
+
+            contentEl.appendChild(actionsEl);
+            nodeEl.appendChild(contentEl);
+
+            // 子节点
+            if (hasChildren && !isEmpty) {
+                const childrenEl = document.createElement('div');
+                childrenEl.className = 'node-children';
+                childrenEl.id = `${nodeId}-children`;
+
+                if (nodeData.type === 'object' && nodeData.properties) {
+                    nodeData.properties.forEach((prop) => {
+                        const childNode = renderNode(prop.value, prop.key, false, false);
+                        childrenEl.appendChild(childNode);
+                    });
+                } else if (nodeData.type === 'array' && nodeData.items) {
+                    nodeData.items.forEach((item, index) => {
+                        const childNode = renderNode(item, `${index}`, false, true);
+                        childrenEl.appendChild(childNode);
+                    });
+                }
+
+                nodeEl.appendChild(childrenEl);
+                expandedNodes.add(nodeId);
+            }
+
+            return nodeEl;
+        }
+
+        // ==================== 格式化值显示 ====================
+        function formatValue(nodeData) {
+            if (!nodeData || !nodeData.type) {
+                return 'null';
+            }
+            
+            switch (nodeData.type) {
+                case 'string':
+                    return `"${nodeData.value}"`;
+                case 'number':
+                    return String(nodeData.value);
+                case 'boolean':
+                    return nodeData.value ? 'true' : 'false';
+                case 'null':
+                    return 'null';
+                case 'object':
+                    const objCount = (nodeData.properties || []).length;
+                    return objCount === 0 ? '{}' : `{${objCount} 项}`;
+                case 'array':
+                    const arrCount = (nodeData.items || []).length;
+                    return arrCount === 0 ? '[]' : `[${arrCount} 项]`;
+                default:
+                    return String(nodeData.value);
+            }
+        }
+
+        // ==================== 折叠/展开节点 ====================
+        function toggleNode(nodeId) {
+            const childrenEl = document.getElementById(`${nodeId}-children`);
+            const toggleEl = document.querySelector(`#${nodeId} .node-toggle`);
+            
+            if (childrenEl && toggleEl) {
+                if (expandedNodes.has(nodeId)) {
+                    childrenEl.classList.add('collapsed');
+                    toggleEl.classList.add('collapsed');
+                    expandedNodes.delete(nodeId);
+                } else {
+                    childrenEl.classList.remove('collapsed');
+                    toggleEl.classList.remove('collapsed');
+                    expandedNodes.add(nodeId);
+                }
+            }
+        }
+
+        // ==================== 展开/折叠全部 ====================
+        function expandAll() {
+            document.querySelectorAll('.node-children').forEach(el => {
+                el.classList.remove('collapsed');
+            });
+            document.querySelectorAll('.node-toggle').forEach(el => {
+                el.classList.remove('collapsed');
+            });
+            expandedNodes.clear();
+            document.querySelectorAll('.tree-node').forEach(el => {
+                expandedNodes.add(el.id);
+            });
+        }
+
+        function collapseAll() {
+            document.querySelectorAll('.node-children').forEach(el => {
+                el.classList.add('collapsed');
+            });
+            document.querySelectorAll('.node-toggle').forEach(el => {
+                el.classList.add('collapsed');
+            });
+            expandedNodes.clear();
+        }
+
+        // ==================== 高亮左侧编辑器 ====================
+        function highlightInEditor(start, end) {
+            const editor = document.getElementById('jsonEditor');
+            editor.focus();
+            
+            // 确保范围有效
+            const textLength = editor.value.length;
+            start = Math.max(0, Math.min(start, textLength));
+            end = Math.max(start, Math.min(end, textLength));
+            
+            editor.setSelectionRange(start, end);
+            
+            // 滚动到选中位置
+            const textBefore = editor.value.substring(0, start);
+            const lines = textBefore.split('\n');
+            const lineHeight = 22.1;
+            const scrollTop = (lines.length - 1) * lineHeight;
+            editor.scrollTop = Math.max(0, scrollTop - editor.clientHeight / 3);
+        }
+
+        // ==================== 编辑键名 ====================
+        function editKey(nodeId, keyEl, oldKey, nodeData) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'edit-input key';
+            input.value = oldKey;
+            // 设置宽度为原始字符宽度 + 一些padding
+            input.style.width = Math.max(40, oldKey.length * 8 + 20) + 'px';
+            
+            const finishEdit = () => {
+                const newKey = input.value.trim();
+                if (newKey && newKey !== oldKey) {
+                    updateKeyInJSON(nodeId, oldKey, newKey);
+                }
+                keyEl.style.display = '';
+                input.remove();
+            };
+            
+            input.addEventListener('blur', finishEdit);
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                } else if (e.key === 'Escape') {
+                    keyEl.style.display = '';
+                    input.remove();
+                }
+            });
+            
+            keyEl.style.display = 'none';
+            keyEl.parentNode.insertBefore(input, keyEl);
+            input.focus();
+            // 光标放在最后，不全选
+            input.setSelectionRange(input.value.length, input.value.length);
+        }
+
+        // ==================== 编辑值 ====================
+        function editValue(nodeId, valueEl, nodeData) {
+            // null值可以改为其他类型
+            if (nodeData.type === 'null') {
+                showTypeSelector(nodeId, valueEl, nodeData);
+                return;
+            }
+            
+            if (nodeData.type === 'boolean') {
+                // 布尔值使用下拉选择
+                const selector = document.createElement('select');
+                selector.className = 'edit-input';
+                selector.innerHTML = `
+                    <option value="true" ${nodeData.value ? 'selected' : ''}>true</option>
+                    <option value="false" ${!nodeData.value ? 'selected' : ''}>false</option>
+                `;
+                
+                selector.addEventListener('blur', () => {
+                    const newValue = selector.value === 'true';
+                    if (newValue !== nodeData.value) {
+                        updateValueInJSON(nodeId, newValue);
+                    }
+                    valueEl.style.display = '';
+                    selector.remove();
+                });
+                
+                selector.addEventListener('change', () => {
+                    selector.blur();
+                });
+                
+                selector.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        valueEl.style.display = '';
+                        selector.remove();
+                    }
+                });
+                
+                valueEl.style.display = 'none';
+                valueEl.parentNode.insertBefore(selector, valueEl);
+                selector.focus();
+                return;
+            }
+            
+            const input = document.createElement('input');
+            input.className = `edit-input ${nodeData.type}`;
+            
+            let displayValue = '';
+            if (nodeData.type === 'string') {
+                input.value = nodeData.value;
+                displayValue = nodeData.value;
+            } else if (nodeData.type === 'number') {
+                input.type = 'number';
+                input.value = nodeData.value;
+                displayValue = String(nodeData.value);
+            }
+            
+            // 设置宽度为原始字符宽度 + 一些padding
+            input.style.width = Math.max(40, displayValue.length * 8 + 20) + 'px';
+            
+            input.addEventListener('blur', () => {
+                let newValue = input.value;
+                
+                if (nodeData.type === 'number') {
+                    newValue = parseFloat(newValue);
+                    if (isNaN(newValue)) {
+                        showToast('无效的数字', 'error');
+                        valueEl.style.display = '';
+                        input.remove();
+                        return;
+                    }
+                }
+                
+                if (newValue !== nodeData.value) {
+                    updateValueInJSON(nodeId, newValue);
+                }
+                valueEl.style.display = '';
+                input.remove();
+            });
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                } else if (e.key === 'Escape') {
+                    valueEl.style.display = '';
+                    input.remove();
+                }
+            });
+            
+            valueEl.style.display = 'none';
+            valueEl.parentNode.insertBefore(input, valueEl);
+            input.focus();
+            // 光标放在最后，不全选
+            input.setSelectionRange(input.value.length, input.value.length);
+        }
+
+        // ==================== 类型选择器（用于null值转换）====================
+        function showTypeSelector(nodeId, valueEl, nodeData) {
+            const selector = document.createElement('select');
+            selector.className = 'edit-input';
+            selector.innerHTML = `
+                <option value="" selected disabled>选择类型...</option>
+                <option value="string">字符串</option>
+                <option value="number">数字</option>
+                <option value="boolean">布尔值</option>
+                <option value="object">对象</option>
+                <option value="array">数组</option>
+            `;
+            
+            selector.addEventListener('blur', () => {
+                valueEl.style.display = '';
+                selector.remove();
+            });
+            
+            selector.addEventListener('change', () => {
+                const type = selector.value;
+                let newValue;
+                
+                switch (type) {
+                    case 'string':
+                        newValue = '';
+                        break;
+                    case 'number':
+                        newValue = 0;
+                        break;
+                    case 'boolean':
+                        newValue = true;
+                        break;
+                    case 'object':
+                        newValue = {};
+                        break;
+                    case 'array':
+                        newValue = [];
+                        break;
+                    default:
+                        valueEl.style.display = '';
+                        selector.remove();
+                        return;
+                }
+                
+                valueEl.style.display = '';
+                selector.remove();
+                updateValueInJSON(nodeId, newValue);
+            });
+            
+            selector.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    valueEl.style.display = '';
+                    selector.remove();
+                }
+            });
+            
+            valueEl.style.display = 'none';
+            valueEl.parentNode.insertBefore(selector, valueEl);
+            selector.focus();
+        }
+
+        // ==================== 更新JSON中的键名 ====================
+        function updateKeyInJSON(nodeId, oldKey, newKey) {
+            try {
+                const editor = document.getElementById('jsonEditor');
+                let json = JSON.parse(editor.value);
+                
+                const path = findNodePath(nodeId);
+                if (path.length > 0) {
+                    let parent = json;
+                    for (let i = 0; i < path.length - 1; i++) {
+                        parent = parent[path[i]];
+                    }
+                    
+                    const parentKey = path[path.length - 1];
+                    const value = parent[oldKey];
+                    delete parent[oldKey];
+                    parent[newKey] = value;
+                    
+                    editor.value = JSON.stringify(json, null, 2);
+                    saveToHistory(editor.value);
+                    parseAndRender();
+                    showToast('键名已更新');
+                }
+            } catch (error) {
+                showToast('更新失败: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== 更新JSON中的值 ====================
+        function updateValueInJSON(nodeId, newValue) {
+            try {
+                const editor = document.getElementById('jsonEditor');
+                let json = JSON.parse(editor.value);
+                
+                const path = findNodePath(nodeId);
+                if (path.length > 0) {
+                    let parent = json;
+                    for (let i = 0; i < path.length - 1; i++) {
+                        parent = parent[path[i]];
+                    }
+                    
+                    const key = path[path.length - 1];
+                    parent[key] = newValue;
+                    
+                    editor.value = JSON.stringify(json, null, 2);
+                    saveToHistory(editor.value);
+                    parseAndRender();
+                    showToast('值已更新');
+                }
+            } catch (error) {
+                showToast('更新失败: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== 查找节点路径 ====================
+        function findNodePath(nodeId) {
+            const path = [];
+            let current = document.getElementById(nodeId);
+            
+            while (current) {
+                const parent = current.parentElement?.closest('.tree-node');
+                if (!parent) break;
+                
+                // 在当前节点的父节点的子节点列表中找到自己的索引
+                const parentChildren = parent.querySelector('.node-children');
+                if (parentChildren) {
+                    const siblings = Array.from(parentChildren.children);
+                    const index = siblings.indexOf(current);
+                    
+                    // 检查父节点是对象还是数组
+                    const parentContent = parent.querySelector('.node-content');
+                    const parentBracket = parentContent?.querySelector('.bracket');
+                    
+                    if (parentBracket && parentBracket.textContent === '[') {
+                        // 父节点是数组
+                        path.unshift(index);
+                    } else {
+                        // 父节点是对象，需要找到键名
+                        const keyEl = current.querySelector('.node-key');
+                        if (keyEl) {
+                            let key = keyEl.textContent;
+                            if (key.startsWith('"') && key.endsWith('"')) {
+                                key = key.slice(1, -1);
+                            }
+                            path.unshift(key);
+                        }
+                    }
+                }
+                
+                current = parent;
+            }
+            
+            return path;
+        }
+
+        // ==================== 复制节点 ====================
+        async function copyNode(nodeData) {
+            try {
+                const valueToCopy = getNodeRealValue(nodeData);
+                const textToCopy = JSON.stringify(valueToCopy, null, 2);
+                await navigator.clipboard.writeText(textToCopy);
+                showToast('已复制节点');
+            } catch (error) {
+                showToast('复制失败', 'error');
+            }
+        }
+
+        // 获取节点的真实值
+        function getNodeRealValue(nodeData) {
+            if (!nodeData || !nodeData.type) {
+                return null;
+            }
+            
+            if (nodeData.type === 'object') {
+                const obj = {};
+                if (nodeData.properties) {
+                    nodeData.properties.forEach(prop => {
+                        obj[prop.key] = getNodeRealValue(prop.value);
+                    });
+                }
+                return obj;
+            } else if (nodeData.type === 'array') {
+                const arr = [];
+                if (nodeData.items) {
+                    nodeData.items.forEach(item => {
+                        arr.push(getNodeRealValue(item));
+                    });
+                }
+                return arr;
+            } else {
+                return nodeData.value;
+            }
+        }
+
+        // ==================== 按钮功能 ====================
+        function formatJSON() {
+            const editor = document.getElementById('jsonEditor');
+            try {
+                const json = JSON.parse(editor.value);
+                editor.value = JSON.stringify(json, null, 2);
+                saveToHistory(editor.value);
+                parseAndRender();
+                updateLineNumbers();
+                showToast('格式化完成');
+            } catch (error) {
+                showToast('JSON格式错误: ' + error.message, 'error');
+            }
+        }
+
+        function minifyJSON() {
+            const editor = document.getElementById('jsonEditor');
+            try {
+                const json = JSON.parse(editor.value);
+                editor.value = JSON.stringify(json);
+                saveToHistory(editor.value);
+                parseAndRender();
+                updateLineNumbers();
+                showToast('压缩完成');
+            } catch (error) {
+                showToast('JSON格式错误: ' + error.message, 'error');
+            }
+        }
+
+        function unescapeJSON() {
+            const editor = document.getElementById('jsonEditor');
+            let text = editor.value;
+            
+            // 去转义处理
+            text = text.replace(/\\"/g, '"')
+                       .replace(/\\\\/g, '\\')
+                       .replace(/\\\//g, '/')
+                       .replace(/\\b/g, '\b')
+                       .replace(/\\f/g, '\f')
+                       .replace(/\\n/g, '\n')
+                       .replace(/\\r/g, '\r')
+                       .replace(/\\t/g, '\t');
+            
+            try {
+                const json = JSON.parse(text);
+                editor.value = JSON.stringify(json, null, 2);
+                saveToHistory(editor.value);
+                parseAndRender();
+                updateLineNumbers();
+                showToast('去转义完成');
+            } catch (error) {
+                showToast('去转义后JSON格式错误: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== 修复JSON功能 ====================
+        function fixJSON() {
+            const editor = document.getElementById('jsonEditor');
+            let text = editor.value;
+            
+            if (!text.trim()) {
+                showToast('没有内容需要修复', 'error');
+                return;
+            }
+            
+            let fixed = text;
+            let fixes = [];
+            
+            // 1. 修复单引号为双引号
+            if (fixed.includes("'")) {
+                const singleQuoteCount = (fixed.match(/'/g) || []).length;
+                const doubleQuoteCount = (fixed.match(/"/g) || []).length;
+                if (singleQuoteCount > doubleQuoteCount) {
+                    fixed = fixed.replace(/'/g, '"');
+                    fixes.push('单引号转双引号');
+                }
+            }
+            
+            // 2. 修复末尾多余的逗号
+            const trailingCommaRegex = /,(\s*[}\]])/g;
+            if (trailingCommaRegex.test(fixed)) {
+                fixed = fixed.replace(trailingCommaRegex, '$1');
+                fixes.push('删除末尾多余逗号');
+            }
+            
+            // 3. 修复键名没有引号的情况
+            const unquotedKeyRegex = /({|,|\[)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g;
+            if (unquotedKeyRegex.test(fixed)) {
+                fixed = fixed.replace(unquotedKeyRegex, '$1"$2":');
+                fixes.push('为键名添加引号');
+            }
+            
+            // 4. 修复注释
+            if (fixed.includes('//') || fixed.includes('/*')) {
+                fixed = fixed.replace(/\/\/.*$/gm, '');
+                fixed = fixed.replace(/\/\*[\s\S]*?\*\//g, '');
+                fixes.push('删除注释');
+            }
+            
+            // 5. 修复未引号的字符串值
+            const unquotedValueRegex = /:(\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*[,}\]])/g;
+            let hasUnquotedValue = false;
+            fixed = fixed.replace(unquotedValueRegex, (match, space1, value, space2) => {
+                const lowerValue = value.toLowerCase();
+                if (lowerValue !== 'true' && lowerValue !== 'false' && lowerValue !== 'null') {
+                    hasUnquotedValue = true;
+                    return ':' + space1 + '"' + value + '"' + space2;
+                }
+                return match;
+            });
+            if (hasUnquotedValue) {
+                fixes.push('为字符串值添加引号');
+            }
+            
+            // 6. 尝试解析验证
+            try {
+                const json = JSON.parse(fixed);
+                editor.value = JSON.stringify(json, null, 2);
+                saveToHistory(editor.value);
+                parseAndRender();
+                updateLineNumbers();
+                
+                if (fixes.length > 0) {
+                    showToast(`已修复: ${fixes.join('、')}`);
+                } else {
+                    showToast('JSON格式正确，无需修复');
+                }
+            } catch (error) {
+                showToast('无法自动修复，请手动检查: ' + error.message, 'error');
+            }
+        }
+
+        async function copyAll() {
+            const editor = document.getElementById('jsonEditor');
+            try {
+                await navigator.clipboard.writeText(editor.value);
+                showToast('已复制全部内容');
+            } catch (error) {
+                showToast('复制失败', 'error');
+            }
+        }
+
+        // ==================== 添加节点 ====================
+        function addNode(nodeId, nodeData) {
+            try {
+                const editor = document.getElementById('jsonEditor');
+                let json = JSON.parse(editor.value);
+                
+                const path = findNodePath(nodeId);
+                
+                // 获取目标对象/数组
+                let target = json;
+                for (let i = 0; i < path.length; i++) {
+                    target = target[path[i]];
+                }
+                
+                if (nodeData.type === 'object') {
+                    // 对象：直接添加一个新键值对
+                    let newKey = 'newKey';
+                    let counter = 1;
+                    // 确保键名不重复
+                    while (target.hasOwnProperty(newKey)) {
+                        newKey = 'newKey' + counter;
+                        counter++;
+                    }
+                    
+                    target[newKey] = '';
+                    showToast('属性已添加，点击编辑键名和值');
+                    
+                } else if (nodeData.type === 'array') {
+                    // 数组：直接在末尾添加空字符串
+                    target.push('');
+                    showToast('元素已添加，点击编辑值');
+                }
+                
+                editor.value = JSON.stringify(json, null, 2);
+                saveToHistory(editor.value);
+                parseAndRender();
+                updateLineNumbers();
+                
+            } catch (error) {
+                showToast('添加失败: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== 删除节点 ====================
+        function deleteNode(nodeId, key) {
+            try {
+                if (!confirm(`确定要删除 "${key}" 吗？`)) {
+                    return;
+                }
+                
+                const editor = document.getElementById('jsonEditor');
+                let json = JSON.parse(editor.value);
+                
+                const path = findNodePath(nodeId);
+                
+                // 获取父对象
+                let parent = json;
+                for (let i = 0; i < path.length - 1; i++) {
+                    parent = parent[path[i]];
+                }
+                
+                // 删除属性/元素
+                if (Array.isArray(parent)) {
+                    // 数组：根据索引删除
+                    const index = parseInt(key);
+                    parent.splice(index, 1);
+                } else {
+                    // 对象：根据键名删除
+                    delete parent[key];
+                }
+                
+                editor.value = JSON.stringify(json, null, 2);
+                saveToHistory(editor.value);
+                parseAndRender();
+                updateLineNumbers();
+                showToast('已删除');
+                
+            } catch (error) {
+                showToast('删除失败: ' + error.message, 'error');
+            }
+        }
+
+        function clearEditor() {
+            const editor = document.getElementById('jsonEditor');
+            editor.value = '';
+            saveToHistory('');
+            parseAndRender();
+            updateLineNumbers();
+            showToast('已清空');
+        }
+
+        function refreshTree() {
+            parseAndRender();
+            showToast('已刷新');
+        }
+
+        // ==================== 文件上传 ====================
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.endsWith('.json')) {
+                showToast('请选择JSON文件', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const editor = document.getElementById('jsonEditor');
+                editor.value = e.target.result;
+                saveToHistory(editor.value);
+                parseAndRender();
+                updateLineNumbers();
+                showToast('文件上传成功');
+            };
+            reader.onerror = () => {
+                showToast('文件读取失败', 'error');
+            };
+            reader.readAsText(file);
+            
+            event.target.value = '';
+        }
+
+        // ==================== 状态更新 ====================
+        function updateStatus(isValid, nodeCount, rootType, charCount) {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusDot = statusIndicator.querySelector('.status-dot');
+            const statusText = statusIndicator.querySelector('.status-text');
+            
+            if (isValid) {
+                statusDot.classList.remove('error');
+                statusText.classList.remove('error');
+                statusText.textContent = 'JSON 有效';
+            } else {
+                statusDot.classList.add('error');
+                statusText.classList.add('error');
+                statusText.textContent = 'JSON 无效';
+            }
+            
+            document.getElementById('nodeCount').textContent = nodeCount;
+            document.getElementById('rootType').textContent = rootType;
+            document.getElementById('charCount').textContent = charCount;
+        }
+
+        // ==================== 统计计算 ====================
+        function calculateStats(nodeData) {
+            let nodeCount = 1;
+            let rootType = nodeData.type;
+            
+            function countNodes(node) {
+                if (!node || !node.type) return;
+                
+                if (node.type === 'object' && node.properties) {
+                    node.properties.forEach(prop => {
+                        nodeCount++;
+                        countNodes(prop.value);
+                    });
+                } else if (node.type === 'array' && node.items) {
+                    node.items.forEach(item => {
+                        nodeCount++;
+                        countNodes(item);
+                    });
+                }
+            }
+            
+            countNodes(nodeData);
+            
+            const typeMap = {
+                'object': 'Object',
+                'array': 'Array',
+                'string': 'String',
+                'number': 'Number',
+                'boolean': 'Boolean',
+                'null': 'Null'
+            };
+            
+            return {
+                nodeCount,
+                rootType: typeMap[rootType] || rootType
+            };
+        }
+
+        // ==================== 错误显示 ====================
+        function showError(error) {
+            const treeContainer = document.getElementById('treeContainer');
+            treeContainer.innerHTML = `
+                <div class="error-panel">
+                    <div class="error-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="error-title">JSON 解析错误</div>
+                    <div class="error-message">${escapeHtml(error.message)}</div>
+                    <div class="error-location">请检查左侧编辑器中标记的错误行</div>
+                    <div class="error-actions">
+                        <button class="btn btn-warning" onclick="fixJSON()">
+                            <i class="fas fa-wrench"></i>
+                            <span>尝试修复</span>
+                        </button>
+                        <button class="btn" onclick="formatJSON()">
+                            <i class="fas fa-align-left"></i>
+                            <span>格式化</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== 空状态 ====================
+        function showEmptyState() {
+            const treeContainer = document.getElementById('treeContainer');
+            treeContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-project-diagram"></i>
+                    <p>在左侧输入JSON，此处将显示可视化树形结构</p>
+                </div>
+            `;
+        }
+
+        // ==================== 提示消息 ====================
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const icon = toast.querySelector('i');
+            
+            toastMessage.textContent = message;
+            toast.className = 'toast show ' + type;
+            
+            if (type === 'success') {
+                icon.className = 'fas fa-check-circle';
+            } else if (type === 'error') {
+                icon.className = 'fas fa-exclamation-circle';
+            } else if (type === 'warning') {
+                icon.className = 'fas fa-exclamation-triangle';
+            }
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2800);
+        }
+    </script>
+</body>
+</html>

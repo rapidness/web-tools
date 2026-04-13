@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 标注工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-card: #f1f5f9;
+            --bg-input: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.15);
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .background-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .app-container {
+            position: relative;
+            z-index: 1;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent), #a855f7);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        .logo-icon svg {
+            width: 24px;
+            height: 24px;
+            color: white;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1e293b 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+        }
+
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .pdf-viewer {
+            flex: 1;
+            overflow: auto;
+            padding: 24px;
+            background: var(--bg-primary);
+            position: relative;
+        }
+
+        .pdf-canvas-wrapper {
+            position: relative;
+            display: inline-block;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+
+        #pdfCanvas {
+            display: block;
+        }
+
+        #drawCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+
+        .upload-prompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .upload-prompt svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .upload-prompt p {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        .sidebar {
+            width: 400px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-card);
+        }
+
+        .sidebar-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .page-selector {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .page-selector label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .page-selector select {
+            flex: 1;
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.875rem;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .rectangles-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .rect-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .rect-card:hover {
+            border-color: var(--accent);
+            transform: translateX(4px);
+        }
+
+        .rect-card.selected {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        .rect-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            gap: 8px;
+        }
+
+        .rect-name-input {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text-primary);
+            flex: 1;
+            border: 1px solid transparent;
+            background: transparent;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: var(--transition);
+        }
+
+        .rect-name-input:hover {
+            border-color: var(--border-color);
+            background: var(--bg-input);
+        }
+
+        .rect-name-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--bg-input);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        .rect-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-input);
+            color: var(--accent);
+        }
+
+        .icon-btn.delete:hover {
+            color: var(--danger);
+        }
+
+        .icon-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .rect-coords {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            margin-bottom: 12px;
+            padding: 8px;
+            background: var(--bg-input);
+            border-radius: 6px;
+        }
+
+        .rect-metadata {
+            border-top: 1px solid var(--border-color);
+            padding-top: 12px;
+        }
+
+        .metadata-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .metadata-key {
+            flex: 0.8;
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            min-width: 0;
+        }
+
+        .metadata-value {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            min-width: 0;
+        }
+
+        .delete-metadata {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+        }
+
+        .metadata-key:focus,
+        .metadata-value:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        .add-metadata-btn {
+            width: 100%;
+            padding: 6px;
+            border: 1px dashed var(--border-color);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 8px;
+        }
+
+        .add-metadata-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            font-size: 0.9rem;
+        }
+
+        .stats-bar {
+            padding: 12px 20px;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-card);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 424px;
+            padding: 12px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--success);
+            border-radius: var(--radius);
+            color: var(--success);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: var(--transition);
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast svg {
+            width: 18px;
+            height: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-grid"></div>
+    
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                </div>
+                <h1>PDF 标注工具</h1>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" id="exportBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    导出JSON
+                </button>
+                <button class="btn btn-primary" id="uploadBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    上传PDF
+                </button>
+            </div>
+        </header>
+
+        <input type="file" id="fileInput" accept=".pdf">
+
+        <div class="main-content">
+            <div class="pdf-viewer" id="pdfViewer">
+                <div class="upload-prompt" id="uploadPrompt">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    <p>点击"上传PDF"按钮加载文件</p>
+                </div>
+                <div class="pdf-canvas-wrapper" id="canvasWrapper" style="display: none;">
+                    <canvas id="pdfCanvas"></canvas>
+                    <canvas id="drawCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-title">标注列表</div>
+                    <div class="page-selector" id="pageSelector" style="display: none;">
+                        <label>页码：</label>
+                        <select id="pageSelect"></select>
+                    </div>
+                </div>
+                <div class="rectangles-list" id="rectanglesList">
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        </svg>
+                        <p>在PDF上拖拽绘制矩形</p>
+                    </div>
+                </div>
+                <div class="stats-bar" id="statsBar" style="display: none;">
+                    <span id="rectCount">0 个标注</span>
+                    <span id="pageInfo">第 1 页</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <span id="toastMessage">操作成功！</span>
+    </div>
+
+    <script>
+        // 设置PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // 全局状态
+        let pdfDoc = null;
+        let currentPage = 1;
+        let scale = 1.5;
+        let rectangles = [];
+        let selectedRectId = null;
+        let isDrawing = false;
+        let isDragging = false;
+        let isResizing = false;
+        let resizeDirection = '';
+        let startX, startY;
+        let currentRect = null;
+        let dragStartX, dragStartY;
+        const RESIZE_HANDLE_SIZE = 8;
+
+        // DOM 元素
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const pdfCanvas = document.getElementById('pdfCanvas');
+        const drawCanvas = document.getElementById('drawCanvas');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const uploadPrompt = document.getElementById('uploadPrompt');
+        const rectanglesList = document.getElementById('rectanglesList');
+        const pageSelector = document.getElementById('pageSelector');
+        const pageSelect = document.getElementById('pageSelect');
+        const statsBar = document.getElementById('statsBar');
+        const rectCount = document.getElementById('rectCount');
+        const pageInfo = document.getElementById('pageInfo');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+
+        // 上传按钮点击
+        uploadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // 文件选择
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type === 'application/pdf') {
+                loadPDF(file);
+            }
+        });
+
+        // 加载PDF
+        async function loadPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            
+            currentPage = 1;
+            rectangles = [];
+            selectedRectId = null;
+            
+            // 填充页码选择器
+            pageSelect.innerHTML = '';
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `第 ${i} 页`;
+                pageSelect.appendChild(option);
+            }
+            
+            pageSelector.style.display = 'flex';
+            statsBar.style.display = 'flex';
+            uploadPrompt.style.display = 'none';
+            canvasWrapper.style.display = 'inline-block';
+            
+            renderPage(currentPage);
+            updateRectanglesList();
+            showToast('PDF加载成功！');
+        }
+
+        // 渲染页面
+        async function renderPage(pageNum) {
+            const page = await pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale });
+            
+            pdfCanvas.width = viewport.width;
+            pdfCanvas.height = viewport.height;
+            drawCanvas.width = viewport.width;
+            drawCanvas.height = viewport.height;
+            
+            const pdfContext = pdfCanvas.getContext('2d');
+            await page.render({
+                canvasContext: pdfContext,
+                viewport: viewport
+            }).promise;
+            
+            pageInfo.textContent = `第 ${pageNum} 页`;
+            redrawRectangles();
+        }
+
+        // 页码切换
+        pageSelect.addEventListener('change', (e) => {
+            currentPage = parseInt(e.target.value);
+            renderPage(currentPage);
+            updateRectanglesList();
+        });
+
+        // 绘制事件
+        drawCanvas.addEventListener('mousedown', (e) => {
+            const rect = drawCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // 检查是否点击了调整大小的手柄
+            const resizeHandle = getResizeHandle(mouseX, mouseY);
+            if (resizeHandle) {
+                isResizing = true;
+                resizeDirection = resizeHandle.direction;
+                startX = mouseX;
+                startY = mouseY;
+                currentRect = resizeHandle.rect;
+                return;
+            }
+            
+            // 检查是否点击了现有矩形
+            const clickedRect = getRectAtPosition(mouseX, mouseY);
+            if (clickedRect) {
+                selectedRectId = clickedRect.id;
+                isDragging = true;
+                dragStartX = mouseX - clickedRect.x;
+                dragStartY = mouseY - clickedRect.y;
+                updateRectanglesList();
+                redrawRectangles();
+                return;
+            }
+            
+            // 开始绘制新矩形
+            isDrawing = true;
+            startX = mouseX;
+            startY = mouseY;
+        });
+
+        drawCanvas.addEventListener('mousemove', (e) => {
+            const rect = drawCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            if (isResizing && currentRect) {
+                handleResize(mouseX, mouseY);
+                redrawRectangles();
+                updateRectanglesList();
+                return;
+            }
+            
+            if (isDragging && selectedRectId) {
+                const movingRect = rectangles.find(r => r.id === selectedRectId);
+                if (movingRect) {
+                    movingRect.x = Math.max(0, Math.min(mouseX - dragStartX, drawCanvas.width - movingRect.width));
+                    movingRect.y = Math.max(0, Math.min(mouseY - dragStartY, drawCanvas.height - movingRect.height));
+                    redrawRectangles();
+                    updateRectanglesList();
+                }
+                return;
+            }
+            
+            if (!isDrawing) {
+                // 更新鼠标样式
+                const resizeHandle = getResizeHandle(mouseX, mouseY);
+                if (resizeHandle) {
+                    drawCanvas.style.cursor = resizeHandle.cursor;
+                } else if (getRectAtPosition(mouseX, mouseY)) {
+                    drawCanvas.style.cursor = 'move';
+                } else {
+                    drawCanvas.style.cursor = 'crosshair';
+                }
+                return;
+            }
+            
+            const currentX = mouseX;
+            const currentY = mouseY;
+            
+            redrawRectangles();
+            drawRect(startX, startY, currentX - startX, currentY - startY, '#6366f1', 2, true);
+        });
+
+        drawCanvas.addEventListener('mouseup', (e) => {
+            if (isResizing) {
+                isResizing = false;
+                resizeDirection = '';
+                currentRect = null;
+                updateRectanglesList();
+                return;
+            }
+            
+            if (isDragging) {
+                isDragging = false;
+                return;
+            }
+            
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            const rect = drawCanvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+            
+            const x = Math.min(startX, endX);
+            const y = Math.min(startY, endY);
+            const width = Math.abs(endX - startX);
+            const height = Math.abs(endY - startY);
+            
+            if (width > 10 && height > 10) {
+                const newRect = {
+                    id: Date.now(),
+                    page: currentPage,
+                    x: Math.round(x),
+                    y: Math.round(y),
+                    width: Math.round(width),
+                    height: Math.round(height),
+                    name: `标注 ${rectangles.length + 1}`,
+                    metadata: [{ key: '', value: '' }]
+                };
+                
+                rectangles.push(newRect);
+                selectedRectId = newRect.id;
+                updateRectanglesList();
+                redrawRectangles();
+                showToast('标注已添加！');
+            } else {
+                redrawRectangles();
+            }
+        });
+        
+        // 获取指定位置的矩形
+        function getRectAtPosition(x, y) {
+            const pageRects = rectangles.filter(r => r.page === currentPage);
+            // 从后向前查找（后绘制的在上层）
+            for (let i = pageRects.length - 1; i >= 0; i--) {
+                const rect = pageRects[i];
+                if (x >= rect.x && x <= rect.x + rect.width &&
+                    y >= rect.y && y <= rect.y + rect.height) {
+                    return rect;
+                }
+            }
+            return null;
+        }
+        
+        // 获取调整大小的手柄
+        function getResizeHandle(x, y) {
+            if (!selectedRectId) return null;
+            
+            const rect = rectangles.find(r => r.id === selectedRectId);
+            if (!rect) return null;
+            
+            const handles = [
+                { direction: 'nw', cursor: 'nw-resize', hx: rect.x, hy: rect.y },
+                { direction: 'ne', cursor: 'ne-resize', hx: rect.x + rect.width, hy: rect.y },
+                { direction: 'sw', cursor: 'sw-resize', hx: rect.x, hy: rect.y + rect.height },
+                { direction: 'se', cursor: 'se-resize', hx: rect.x + rect.width, hy: rect.y + rect.height },
+                { direction: 'n', cursor: 'n-resize', hx: rect.x + rect.width / 2, hy: rect.y },
+                { direction: 's', cursor: 's-resize', hx: rect.x + rect.width / 2, hy: rect.y + rect.height },
+                { direction: 'w', cursor: 'w-resize', hx: rect.x, hy: rect.y + rect.height / 2 },
+                { direction: 'e', cursor: 'e-resize', hx: rect.x + rect.width, hy: rect.y + rect.height / 2 }
+            ];
+            
+            for (const handle of handles) {
+                if (Math.abs(x - handle.hx) <= RESIZE_HANDLE_SIZE &&
+                    Math.abs(y - handle.hy) <= RESIZE_HANDLE_SIZE) {
+                    return { ...handle, rect };
+                }
+            }
+            return null;
+        }
+        
+        // 处理调整大小
+        function handleResize(mouseX, mouseY) {
+            if (!currentRect) return;
+            
+            const dx = mouseX - startX;
+            const dy = mouseY - startY;
+            const minSize = 20;
+            
+            let newX = currentRect.x;
+            let newY = currentRect.y;
+            let newWidth = currentRect.width;
+            let newHeight = currentRect.height;
+            
+            switch (resizeDirection) {
+                case 'se':
+                    newWidth = Math.max(minSize, currentRect.width + dx);
+                    newHeight = Math.max(minSize, currentRect.height + dy);
+                    break;
+                case 'nw':
+                    newWidth = Math.max(minSize, currentRect.width - dx);
+                    newHeight = Math.max(minSize, currentRect.height - dy);
+                    if (newWidth > minSize) newX = currentRect.x + dx;
+                    if (newHeight > minSize) newY = currentRect.y + dy;
+                    break;
+                case 'ne':
+                    newWidth = Math.max(minSize, currentRect.width + dx);
+                    newHeight = Math.max(minSize, currentRect.height - dy);
+                    if (newHeight > minSize) newY = currentRect.y + dy;
+                    break;
+                case 'sw':
+                    newWidth = Math.max(minSize, currentRect.width - dx);
+                    newHeight = Math.max(minSize, currentRect.height + dy);
+                    if (newWidth > minSize) newX = currentRect.x + dx;
+                    break;
+                case 'n':
+                    newHeight = Math.max(minSize, currentRect.height - dy);
+                    if (newHeight > minSize) newY = currentRect.y + dy;
+                    break;
+                case 's':
+                    newHeight = Math.max(minSize, currentRect.height + dy);
+                    break;
+                case 'w':
+                    newWidth = Math.max(minSize, currentRect.width - dx);
+                    if (newWidth > minSize) newX = currentRect.x + dx;
+                    break;
+                case 'e':
+                    newWidth = Math.max(minSize, currentRect.width + dx);
+                    break;
+            }
+            
+            currentRect.x = Math.round(newX);
+            currentRect.y = Math.round(newY);
+            currentRect.width = Math.round(newWidth);
+            currentRect.height = Math.round(newHeight);
+            
+            startX = mouseX;
+            startY = mouseY;
+        }
+
+        // 绘制矩形
+        function drawRect(x, y, width, height, color, lineWidth, isDashed) {
+            const ctx = drawCanvas.getContext('2d');
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.setLineDash(isDashed ? [5, 5] : []);
+            ctx.strokeRect(x, y, width, height);
+            ctx.setLineDash([]);
+        }
+
+        // 重绘所有矩形
+        function redrawRectangles() {
+            const ctx = drawCanvas.getContext('2d');
+            ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            
+            const pageRects = rectangles.filter(r => r.page === currentPage);
+            pageRects.forEach(rect => {
+                const isSelected = rect.id === selectedRectId;
+                const color = isSelected ? '#6366f1' : '#10b981';
+                const lineWidth = isSelected ? 3 : 2;
+                drawRect(rect.x, rect.y, rect.width, rect.height, color, lineWidth, false);
+                
+                // 绘制标签和值
+                if (rect.name) {
+                    ctx.fillStyle = color;
+                    ctx.font = 'bold 12px Arial';
+                    const labelWidth = ctx.measureText(rect.name).width + 10;
+                    ctx.fillRect(rect.x, rect.y - 20, labelWidth, 20);
+                    ctx.fillStyle = 'white';
+                    ctx.fillText(rect.name, rect.x + 5, rect.y - 6);
+                }
+                
+                // 在矩形内显示value
+                if (rect.metadata && rect.metadata.length > 0) {
+                    const values = rect.metadata.filter(m => m.value).map(m => m.value);
+                    if (values.length > 0) {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                        ctx.fillRect(rect.x + 5, rect.y + 5, rect.width - 10, Math.min(100, rect.height - 10));
+                        
+                        ctx.fillStyle = color;
+                        ctx.font = '11px Arial';
+                        const startY = rect.y + 18;
+                        const lineHeight = 15;
+                        const maxLines = Math.floor((rect.height - 20) / lineHeight);
+                        
+                        values.slice(0, maxLines).forEach((text, index) => {
+                            // 截断过长的文本
+                            let displayText = text;
+                            const maxWidth = rect.width - 20;
+                            if (ctx.measureText(text).width > maxWidth) {
+                                while (ctx.measureText(displayText + '...').width > maxWidth && displayText.length > 0) {
+                                    displayText = displayText.slice(0, -1);
+                                }
+                                displayText += '...';
+                            }
+                            ctx.fillText(displayText, rect.x + 10, startY + index * lineHeight);
+                        });
+                    }
+                }
+                
+                // 绘制调整手柄
+                if (isSelected) {
+                    drawResizeHandles(ctx, rect);
+                }
+            });
+        }
+        
+        // 绘制调整大小的手柄
+        function drawResizeHandles(ctx, rect) {
+            ctx.fillStyle = '#6366f1';
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            
+            const handles = [
+                { x: rect.x, y: rect.y },
+                { x: rect.x + rect.width, y: rect.y },
+                { x: rect.x, y: rect.y + rect.height },
+                { x: rect.x + rect.width, y: rect.y + rect.height },
+                { x: rect.x + rect.width / 2, y: rect.y },
+                { x: rect.x + rect.width / 2, y: rect.y + rect.height },
+                { x: rect.x, y: rect.y + rect.height / 2 },
+                { x: rect.x + rect.width, y: rect.y + rect.height / 2 }
+            ];
+            
+            handles.forEach(handle => {
+                ctx.beginPath();
+                ctx.arc(handle.x, handle.y, RESIZE_HANDLE_SIZE / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        // 更新矩形列表
+        function updateRectanglesList() {
+            const pageRects = rectangles.filter(r => r.page === currentPage);
+            
+            if (pageRects.length === 0) {
+                rectanglesList.innerHTML = `
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        </svg>
+                        <p>在PDF上拖拽绘制矩形</p>
+                    </div>
+                `;
+            } else {
+                rectanglesList.innerHTML = pageRects.map(rect => `
+                    <div class="rect-card ${rect.id === selectedRectId ? 'selected' : ''}" data-id="${rect.id}">
+                        <div class="rect-card-header">
+                            <input type="text" class="rect-name-input" value="${rect.name}" onchange="updateRectName(${rect.id}, this.value)" onclick="event.stopPropagation()">
+                            <div class="rect-actions">
+                                <button class="icon-btn delete" onclick="deleteRect(${rect.id})" title="删除">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6"/>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="rect-coords">
+                            X: ${rect.x}, Y: ${rect.y}<br>
+                            宽: ${rect.width}, 高: ${rect.height}
+                        </div>
+                        <div class="rect-metadata">
+                            ${rect.metadata.map((meta, idx) => `
+                                <div class="metadata-row">
+                                    <input type="text" class="metadata-key" placeholder="Key" value="${meta.key}" onchange="updateMetadata(${rect.id}, ${idx}, 'key', this.value)" onclick="event.stopPropagation()">
+                                    <input type="text" class="metadata-value" placeholder="Value" value="${meta.value}" onchange="updateMetadata(${rect.id}, ${idx}, 'value', this.value)" onclick="event.stopPropagation()">
+                                    <button class="icon-btn delete-metadata" onclick="deleteMetadata(${rect.id}, ${idx})" title="删除">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18"/>
+                                            <line x1="6" y1="6" x2="18" y2="18"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            `).join('')}
+                            <button class="add-metadata-btn" onclick="addMetadata(${rect.id})">+ 添加键值对</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            rectCount.textContent = `${pageRects.length} 个标注`;
+            
+            // 绑定点击事件
+            document.querySelectorAll('.rect-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    if (e.target.closest('.icon-btn') || e.target.closest('input')) return;
+                    const id = parseInt(card.dataset.id);
+                    selectRect(id);
+                });
+            });
+        }
+
+        // 选择矩形
+        function selectRect(id) {
+            selectedRectId = id;
+            updateRectanglesList();
+            redrawRectangles();
+        }
+
+        // 删除矩形
+        function deleteRect(id) {
+            rectangles = rectangles.filter(r => r.id !== id);
+            if (selectedRectId === id) {
+                selectedRectId = null;
+            }
+            updateRectanglesList();
+            redrawRectangles();
+            showToast('标注已删除！');
+        }
+
+        // 添加元数据
+        function addMetadata(rectId) {
+            const rect = rectangles.find(r => r.id === rectId);
+            if (rect) {
+                rect.metadata.push({ key: '', value: '' });
+                updateRectanglesList();
+            }
+        }
+
+        // 删除元数据
+        function deleteMetadata(rectId, index) {
+            const rect = rectangles.find(r => r.id === rectId);
+            if (rect && rect.metadata[index]) {
+                rect.metadata.splice(index, 1);
+                // 确保至少保留一个
+                if (rect.metadata.length === 0) {
+                    rect.metadata.push({ key: '', value: '' });
+                }
+                updateRectanglesList();
+                redrawRectangles();
+            }
+        }
+        
+        // 更新元数据
+        function updateMetadata(rectId, index, field, value) {
+            const rect = rectangles.find(r => r.id === rectId);
+            if (rect && rect.metadata[index]) {
+                rect.metadata[index][field] = value;
+                redrawRectangles();
+            }
+        }
+        
+        // 更新矩形名称
+        function updateRectName(rectId, name) {
+            const rect = rectangles.find(r => r.id === rectId);
+            if (rect) {
+                rect.name = name;
+                redrawRectangles();
+            }
+        }
+
+        // 导出JSON
+        exportBtn.addEventListener('click', () => {
+            if (rectangles.length === 0) {
+                showToast('没有可导出的标注！');
+                return;
+            }
+            
+            const data = {
+                exportTime: new Date().toISOString(),
+                totalPages: pdfDoc ? pdfDoc.numPages : 0,
+                rectangles: rectangles
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pdf-annotations-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('导出成功！');
+        });
+
+        // 显示提示
+        function showToast(message) {
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // 使函数全局可用
+        window.deleteRect = deleteRect;
+        window.addMetadata = addMetadata;
+        window.deleteMetadata = deleteMetadata;
+        window.updateMetadata = updateMetadata;
+        window.updateRectName = updateRectName;
+    </script>
+</body>
+</html>
