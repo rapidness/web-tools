@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 排版映射工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f1f5f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #f8fafc;
+            --border-color: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --source-color: #3b82f6;
+            --source-glow: rgba(59, 130, 246, 0.2);
+            --target-color: #10b981;
+            --target-glow: rgba(16, 185, 129, 0.2);
+            --pending-color: #f59e0b;
+            --pending-glow: rgba(245, 158, 11, 0.25);
+            --mapped-color: #8b5cf6;
+            --mapped-glow: rgba(139, 92, 246, 0.2);
+            --danger: #ef4444;
+            --radius: 10px;
+            --radius-sm: 6px;
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== 顶部工具栏 ========== */
+        .toolbar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
+        .toolbar-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            background: linear-gradient(135deg, #1e293b, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-right: auto;
+            white-space: nowrap;
+        }
+
+        .toolbar-logo svg {
+            width: 28px;
+            height: 28px;
+            color: var(--accent);
+            -webkit-text-fill-color: initial;
+        }
+
+        .file-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-card);
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        .file-input-group label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .file-name {
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            white-space: nowrap;
+        }
+
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 4px 12px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-success {
+            background: var(--target-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            box-shadow: 0 4px 12px var(--target-glow);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .hint-bar {
+            background: linear-gradient(90deg, rgba(99,102,241,0.08), rgba(59,130,246,0.08));
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 20px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .hint-bar .step {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .hint-bar .step-num {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hint-bar .arrow {
+            color: var(--text-muted);
+            margin: 0 4px;
+        }
+
+        /* ========== 主体区域 ========== */
+        .main-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .pdf-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .pdf-panel.source {
+            border-right: 1px solid var(--border-color);
+        }
+
+        .panel-header {
+            background: var(--bg-secondary);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .panel-title .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .panel-title .dot.source-dot {
+            background: var(--source-color);
+            box-shadow: 0 0 6px var(--source-glow);
+        }
+
+        .panel-title .dot.target-dot {
+            background: var(--target-color);
+            box-shadow: 0 0 6px var(--target-glow);
+        }
+
+        .panel-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-controls select {
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .scale-control {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--bg-card);
+            border-radius: var(--radius-sm);
+            padding: 2px 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .scale-control button {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .scale-control button:hover {
+            background: var(--bg-secondary);
+            color: var(--accent);
+        }
+
+        .scale-control span {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .pdf-viewer {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            display: inline-block;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .canvas-wrapper canvas {
+            display: block;
+        }
+
+        .canvas-wrapper .overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+
+        .upload-prompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .upload-prompt svg {
+            width: 56px;
+            height: 56px;
+            margin-bottom: 16px;
+            opacity: 0.4;
+        }
+
+        .upload-prompt p {
+            font-size: 0.95rem;
+            margin-bottom: 12px;
+        }
+
+        .upload-prompt .sub {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+
+        /* ========== 映射列表侧边栏 ========== */
+        .mapping-sidebar {
+            width: 380px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+            transition: var(--transition);
+        }
+
+        .mapping-sidebar.collapsed {
+            width: 44px;
+        }
+
+        .mapping-sidebar.collapsed .sidebar-title,
+        .mapping-sidebar.collapsed .mapping-list {
+            display: none;
+        }
+
+        .mapping-sidebar.collapsed .sidebar-header {
+            justify-content: center;
+            padding: 12px 8px;
+        }
+
+        .collapsed-hint {
+            display: none;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 2px;
+            padding: 16px 0;
+            text-align: center;
+            flex: 1;
+        }
+
+        .mapping-sidebar.collapsed .collapsed-hint {
+            display: block;
+        }
+
+        .sidebar-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sidebar-title .badge {
+            background: var(--accent);
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .sidebar-toggle {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--bg-secondary);
+            color: var(--accent);
+        }
+
+        .mapping-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .mapping-item {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .mapping-item:hover {
+            border-color: var(--mapped-color);
+            box-shadow: 0 2px 8px var(--mapped-glow);
+        }
+
+        .mapping-item.active {
+            border-color: var(--mapped-color);
+            background: var(--mapped-glow);
+        }
+
+        .mapping-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .mapping-field-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .mapping-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .icon-btn {
+            width: 26px;
+            height: 26px;
+            border-radius: 5px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-secondary);
+            color: var(--accent);
+        }
+
+        .icon-btn.delete:hover {
+            color: var(--danger);
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        .icon-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .mapping-preview {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .mapping-region-preview {
+            flex: 1;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+        }
+
+        .mapping-region-preview.source-preview {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            color: var(--source-color);
+        }
+
+        .mapping-region-preview.target-preview {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--target-color);
+        }
+
+        .mapping-arrow {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .mapping-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .mapping-tag {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.4;
+        }
+
+        .empty-state p {
+            font-size: 0.85rem;
+        }
+
+        /* ========== 弹窗 ========== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
+            width: 460px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: modalIn 0.25s ease;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(-20px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            background: linear-gradient(135deg, var(--accent), #7c3aed);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .modal-close:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: var(--transition);
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .region-info {
+            background: var(--bg-card);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            margin-bottom: 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .region-info-box {
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        .region-info-box.source-info {
+            background: rgba(59, 130, 246, 0.06);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+        }
+
+        .region-info-box.target-info {
+            background: rgba(16, 185, 129, 0.06);
+            border: 1px solid rgba(16, 185, 129, 0.15);
+        }
+
+        .region-info-box .ri-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 0.75rem;
+        }
+
+        .region-info-box.source-info .ri-title {
+            color: var(--source-color);
+        }
+
+        .region-info-box.target-info .ri-title {
+            color: var(--target-color);
+        }
+
+        .region-info-box .ri-detail {
+            color: var(--text-secondary);
+            font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+            font-size: 0.75rem;
+            line-height: 1.5;
+        }
+
+        .modal-footer {
+            padding: 12px 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        /* ========== Toast ========== */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent);
+            padding: 12px 20px;
+            border-radius: var(--radius-sm);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            z-index: 2000;
+            opacity: 0;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            border-left-color: var(--target-color);
+        }
+
+        .toast.error {
+            border-left-color: var(--danger);
+        }
+
+        /* ========== 状态提示浮层 ========== */
+        .status-float {
+            position: fixed;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            padding: 8px 20px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            z-index: 50;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-float.show {
+            display: flex;
+            animation: floatIn 0.3s ease;
+        }
+
+        @keyframes floatIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        .status-float .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--pending-color);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* ========== 滚动条 ========== */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 顶部工具栏 -->
+    <div class="toolbar">
+        <div class="toolbar-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            PDF 排版映射工具
+        </div>
+
+        <div class="file-input-group">
+            <label>📄 源文档:</label>
+            <span class="file-name" id="fileNameA">未选择</span>
+            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('fileInputA').click()">选择</button>
+            <input type="file" id="fileInputA" accept=".pdf" onchange="App.loadPDF(this.files[0], 'A')">
+        </div>
+
+        <div class="file-input-group">
+            <label>📋 目标模板:</label>
+            <span class="file-name" id="fileNameB">未选择</span>
+            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('fileInputB').click()">选择</button>
+            <input type="file" id="fileInputB" accept=".pdf" onchange="App.loadPDF(this.files[0], 'B')">
+        </div>
+
+        <button class="btn btn-success" onclick="App.exportConfig()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            导出映射配置
+        </button>
+    </div>
+
+    <!-- 提示栏 -->
+    <div class="hint-bar">
+        <span class="step"><span class="step-num">1</span> 上传两个PDF</span>
+        <span class="arrow">→</span>
+        <span class="step"><span class="step-num">2</span> 在左侧框选源区域</span>
+        <span class="arrow">→</span>
+        <span class="step"><span class="step-num">3</span> 在右侧框选目标区域</span>
+        <span class="arrow">→</span>
+        <span class="step"><span class="step-num">4</span> 填写字段信息完成映射</span>
+        <span style="margin-left:auto;color:var(--text-muted);font-size:0.75rem;">💡 点击框选区域可调整大小或按 Delete 删除</span>
+    </div>
+
+    <!-- 状态浮层 -->
+    <div class="status-float" id="statusFloat">
+        <div class="dot"></div>
+        <span id="statusText">等待操作...</span>
+    </div>
+
+    <!-- 主体 -->
+    <div class="main-container">
+        <!-- 左侧：源文档 A -->
+        <div class="pdf-panel source">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="dot source-dot"></span>
+                    源文档 A
+                </div>
+                <div class="panel-controls">
+                    <select id="pageSelectA" onchange="App.gotoPage('A', this.value)">
+                        <option>--</option>
+                    </select>
+                    <div class="scale-control">
+                        <button onclick="App.zoom('A', -0.1)">−</button>
+                        <span id="scaleLabelA">150%</span>
+                        <button onclick="App.zoom('A', 0.1)">+</button>
+                    </div>
+                </div>
+            </div>
+            <div class="pdf-viewer" id="viewerA">
+                <div class="upload-prompt" id="promptA">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    <p>请选择源文档 PDF</p>
+                    <p class="sub">在此文档上框选需要提取数据的区域</p>
+                </div>
+                <div class="canvas-wrapper" id="wrapperA" style="display:none;">
+                    <canvas id="canvasA"></canvas>
+                    <canvas class="overlay-canvas" id="overlayA"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：目标模板 B -->
+        <div class="pdf-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="dot target-dot"></span>
+                    目标模板 B
+                </div>
+                <div class="panel-controls">
+                    <select id="pageSelectB" onchange="App.gotoPage('B', this.value)">
+                        <option>--</option>
+                    </select>
+                    <div class="scale-control">
+                        <button onclick="App.zoom('B', -0.1)">−</button>
+                        <span id="scaleLabelB">150%</span>
+                        <button onclick="App.zoom('B', 0.1)">+</button>
+                    </div>
+                </div>
+            </div>
+            <div class="pdf-viewer" id="viewerB">
+                <div class="upload-prompt" id="promptB">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    <p>请选择目标模板 PDF</p>
+                    <p class="sub">在此模板上框选数据需要填入的位置</p>
+                </div>
+                <div class="canvas-wrapper" id="wrapperB" style="display:none;">
+                    <canvas id="canvasB"></canvas>
+                    <canvas class="overlay-canvas" id="overlayB"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 映射列表面板 -->
+        <div class="mapping-sidebar" id="mappingSidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    字段映射
+                    <span class="badge" id="mappingCount">0</span>
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle" onclick="App.toggleSidebar()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="collapsed-hint">字段映射</div>
+            <div class="mapping-list" id="mappingList">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <line x1="8" y1="12" x2="16" y2="12"/>
+                        <line x1="12" y1="8" x2="12" y2="16"/>
+                    </svg>
+                    <p>尚未创建映射</p>
+                    <p class="sub">在左侧和右侧分别框选区域以建立映射</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 映射编辑弹窗 -->
+    <div class="modal-overlay" id="mappingModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📝 编辑字段映射</h3>
+                <button class="modal-close" onclick="App.closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="region-info">
+                    <div class="region-info-box source-info">
+                        <div class="ri-title">📄 源区域 (A)</div>
+                        <div class="ri-detail" id="modalSourceInfo">--</div>
+                    </div>
+                    <div class="region-info-box target-info">
+                        <div class="ri-title">📋 目标区域 (B)</div>
+                        <div class="ri-detail" id="modalTargetInfo">--</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>字段名称 *</label>
+                    <input type="text" id="fieldName" placeholder="例如：客户姓名、合同金额">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>数据类型</label>
+                        <select id="dataType">
+                            <option value="text">文本</option>
+                            <option value="number">数字</option>
+                            <option value="date">日期</option>
+                            <option value="currency">金额</option>
+                            <option value="phone">电话</option>
+                            <option value="email">邮箱</option>
+                            <option value="idcard">身份证号</option>
+                            <option value="address">地址</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>转换规则</label>
+                        <input type="text" id="transformRule" placeholder="可选，如格式化规则">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>备注说明</label>
+                    <textarea id="fieldRemark" placeholder="可选，补充说明此映射的用途或注意事项"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="App.closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="App.saveMapping()">保存映射</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <span id="toastMsg">提示信息</span>
+    </div>
+
+    <script>
+        // ==================== PDF.js 配置 ====================
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // ==================== 应用状态 ====================
+        const App = {
+            pdfA: {
+                doc: null,
+                fileName: '',
+                currentPage: 1,
+                scale: 1.5,
+                regions: [],
+                pending: null,
+            },
+            pdfB: {
+                doc: null,
+                fileName: '',
+                currentPage: 1,
+                scale: 1.5,
+                regions: [],
+                pending: null,
+            },
+            mappings: [],
+            isDrawing: false,
+            drawSide: null,
+            drawStart: { x: 0, y: 0 },
+            editingMappingId: null,
+            nextRegionId: 1,
+            nextMappingId: 1,
+            highlightedMappingId: null,
+            elements: {},
+            // 选中与调整
+            selectedRegion: { A: null, B: null },
+            isResizing: false,
+            resizeInfo: { side: null, region: null, direction: '', startX: 0, startY: 0, origX: 0, origY: 0, origW: 0, origH: 0 },
+            isDraggingRegion: false,
+            dragOffset: { x: 0, y: 0 },
+            HANDLE_SIZE: 8,
+
+            init() {
+                this.elements = {
+                    canvasA: document.getElementById('canvasA'),
+                    overlayA: document.getElementById('overlayA'),
+                    wrapperA: document.getElementById('wrapperA'),
+                    promptA: document.getElementById('promptA'),
+                    pageSelectA: document.getElementById('pageSelectA'),
+                    scaleLabelA: document.getElementById('scaleLabelA'),
+                    fileNameA: document.getElementById('fileNameA'),
+
+                    canvasB: document.getElementById('canvasB'),
+                    overlayB: document.getElementById('overlayB'),
+                    wrapperB: document.getElementById('wrapperB'),
+                    promptB: document.getElementById('promptB'),
+                    pageSelectB: document.getElementById('pageSelectB'),
+                    scaleLabelB: document.getElementById('scaleLabelB'),
+                    fileNameB: document.getElementById('fileNameB'),
+
+                    mappingList: document.getElementById('mappingList'),
+                    mappingCount: document.getElementById('mappingCount'),
+                    mappingModal: document.getElementById('mappingModal'),
+                    mappingSidebar: document.getElementById('mappingSidebar'),
+                    statusFloat: document.getElementById('statusFloat'),
+                    statusText: document.getElementById('statusText'),
+                    toast: document.getElementById('toast'),
+                    toastMsg: document.getElementById('toastMsg'),
+                };
+
+                this.setupOverlayEvents('A');
+                this.setupOverlayEvents('B');
+                this.setupKeyboardEvents();
+                this.updateStatus();
+            },
+
+            setupKeyboardEvents() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                        for (const side of ['A', 'B']) {
+                            if (this.selectedRegion[side]) {
+                                e.preventDefault();
+                                this.deleteRegion(side, this.selectedRegion[side]);
+                                break;
+                            }
+                        }
+                    }
+                });
+            },
+
+            deleteRegion(side, regionId) {
+                const pdf = side === 'A' ? this.pdfA : this.pdfB;
+                const idx = pdf.regions.findIndex(r => r.id === regionId);
+                if (idx === -1) return;
+
+                const region = pdf.regions[idx];
+
+                // 如果有关联映射，询问是否删除
+                if (region.mappingId) {
+                    const mapping = this.mappings.find(m => m.id === region.mappingId);
+                    if (mapping) {
+                        if (!confirm(`该区域已关联映射「${mapping.fieldName}」，删除区域将同时删除此映射，是否继续？`)) {
+                            return;
+                        }
+                        this.deleteMapping(region.mappingId, false);
+                    }
+                }
+
+                // 如果是 pending，清除 pending
+                if (pdf.pending && pdf.pending.id === regionId) {
+                    pdf.pending = null;
+                }
+
+                // 清除选中
+                if (this.selectedRegion[side] === regionId) {
+                    this.selectedRegion[side] = null;
+                }
+
+                pdf.regions.splice(idx, 1);
+                this.drawAllRegions();
+                this.updateStatus();
+                this.showToast('区域已删除');
+            },
+
+            getResizeHandle(region, x, y) {
+                const h = this.HANDLE_SIZE;
+                const cx = region.x + region.width / 2;
+                const cy = region.y + region.height / 2;
+                const r = region.x + region.width;
+                const b = region.y + region.height;
+
+                const handles = [
+                    { dir: 'nw', x: region.x, y: region.y, cursor: 'nw-resize' },
+                    { dir: 'ne', x: r, y: region.y, cursor: 'ne-resize' },
+                    { dir: 'sw', x: region.x, y: b, cursor: 'sw-resize' },
+                    { dir: 'se', x: r, y: b, cursor: 'se-resize' },
+                    { dir: 'n', x: cx, y: region.y, cursor: 'n-resize' },
+                    { dir: 's', x: cx, y: b, cursor: 's-resize' },
+                    { dir: 'w', x: region.x, y: cy, cursor: 'w-resize' },
+                    { dir: 'e', x: r, y: cy, cursor: 'e-resize' },
+                ];
+
+                for (const handle of handles) {
+                    if (Math.abs(x - handle.x) <= h && Math.abs(y - handle.y) <= h) {
+                        return handle;
+                    }
+                }
+                return null;
+            },
+
+            async loadPDF(file, side) {
+                if (!file || file.type !== 'application/pdf') {
+                    this.showToast('请选择 PDF 文件', 'error');
+                    return;
+                }
+
+                const pdf = side === 'A' ? this.pdfA : this.pdfB;
+                const els = this.elements;
+
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    pdf.doc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    pdf.fileName = file.name;
+                    pdf.currentPage = 1;
+                    pdf.regions = [];
+                    pdf.pending = null;
+
+                    (side === 'A' ? els.fileNameA : els.fileNameB).textContent = file.name;
+
+                    const select = side === 'A' ? els.pageSelectA : els.pageSelectB;
+                    select.innerHTML = '';
+                    for (let i = 1; i <= pdf.doc.numPages; i++) {
+                        const opt = document.createElement('option');
+                        opt.value = i;
+                        opt.textContent = `第 ${i} 页 / 共 ${pdf.doc.numPages} 页`;
+                        select.appendChild(opt);
+                    }
+                    select.value = 1;
+
+                    (side === 'A' ? els.promptA : els.promptB).style.display = 'none';
+                    (side === 'A' ? els.wrapperA : els.wrapperB).style.display = 'inline-block';
+
+                    await this.renderPage(side, 1);
+                    this.showToast(`PDF "${file.name}" 加载成功`);
+                    this.updateStatus();
+                    this.drawAllRegions();
+                } catch (err) {
+                    console.error(err);
+                    this.showToast('PDF 加载失败: ' + err.message, 'error');
+                }
+            },
+
+            async renderPage(side, pageNum) {
+                const pdf = side === 'A' ? this.pdfA : this.pdfB;
+                const canvas = side === 'A' ? this.elements.canvasA : this.elements.canvasB;
+                const overlay = side === 'A' ? this.elements.overlayA : this.elements.overlayB;
+
+                if (!pdf.doc || pageNum < 1 || pageNum > pdf.doc.numPages) return;
+
+                pdf.currentPage = pageNum;
+                const page = await pdf.doc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: pdf.scale });
+
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                overlay.width = viewport.width;
+                overlay.height = viewport.height;
+
+                const ctx = canvas.getContext('2d');
+                await page.render({ canvasContext: ctx, viewport }).promise;
+
+                (side === 'A' ? this.elements.scaleLabelA : this.elements.scaleLabelB).textContent =
+                    Math.round(pdf.scale * 100) + '%';
+            },
+
+            gotoPage(side, pageNum) {
+                pageNum = parseInt(pageNum);
+                this.renderPage(side, pageNum);
+                this.drawAllRegions();
+            },
+
+            zoom(side, delta) {
+                const pdf = side === 'A' ? this.pdfA : this.pdfB;
+                pdf.scale = Math.max(0.5, Math.min(3.0, pdf.scale + delta));
+                this.renderPage(side, pdf.currentPage);
+                this.drawAllRegions();
+            },
+
+            setupOverlayEvents(side) {
+                const overlay = side === 'A' ? this.elements.overlayA : this.elements.overlayB;
+                const pdf = side === 'A' ? this.pdfA : this.pdfB;
+
+                overlay.addEventListener('mousedown', (e) => {
+                    const rect = overlay.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+
+                    // 1) 检查是否点击了调整手柄（仅当选中区域时）
+                    const selectedId = this.selectedRegion[side];
+                    const selectedRegion = selectedId ? pdf.regions.find(r => r.id === selectedId) : null;
+                    if (selectedRegion && selectedRegion.page === pdf.currentPage) {
+                        const handle = this.getResizeHandle(selectedRegion, x, y);
+                        if (handle) {
+                            this.isResizing = true;
+                            this.resizeInfo = {
+                                side,
+                                region: selectedRegion,
+                                direction: handle.dir,
+                                startX: x,
+                                startY: y,
+                                origX: selectedRegion.x,
+                                origY: selectedRegion.y,
+                                origW: selectedRegion.width,
+                                origH: selectedRegion.height,
+                            };
+                            return;
+                        }
+                    }
+
+                    // 2) 检查是否点击了现有区域
+                    const clicked = this.getRegionAt(side, x, y);
+                    if (clicked) {
+                        this.selectedRegion[side] = clicked.id;
+
+                        // 如果点击的是已映射区域，高亮映射
+                        if (clicked.mappingId) {
+                            this.highlightMapping(clicked.mappingId);
+                        }
+                        // 如果点击的是 pending 区域，取消 pending（变成普通区域）
+                        if (pdf.pending && pdf.pending.id === clicked.id) {
+                            pdf.pending = null;
+                            this.updateStatus();
+                        }
+
+                        // 准备拖拽移动
+                        this.isDraggingRegion = true;
+                        this.dragOffset = { x: x - clicked.x, y: y - clicked.y };
+                        this.dragSide = side;
+
+                        this.drawAllRegions();
+                        return;
+                    }
+
+                    // 3) 点击空白处：取消选中，开始绘制
+                    this.selectedRegion[side] = null;
+                    this.drawAllRegions();
+
+                    this.isDrawing = true;
+                    this.drawSide = side;
+                    this.drawStart = { x, y };
+                });
+
+                overlay.addEventListener('mousemove', (e) => {
+                    const rect = overlay.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+
+                    // 调整大小中
+                    if (this.isResizing && this.resizeInfo.side === side) {
+                        this.handleResize(x, y);
+                        this.drawAllRegions();
+                        return;
+                    }
+
+                    // 拖拽移动中
+                    if (this.isDraggingRegion && this.dragSide === side) {
+                        const r = this.getRegionAt(side, x, y);
+                        if (r && r.id === this.selectedRegion[side]) {
+                            r.x = Math.max(0, Math.round(x - this.dragOffset.x));
+                            r.y = Math.max(0, Math.round(y - this.dragOffset.y));
+                            // 同时更新映射中的坐标
+                            if (r.mappingId) {
+                                const mapping = this.mappings.find(m => m.id === r.mappingId);
+                                if (mapping) {
+                                    const key = side === 'A' ? 'source' : 'target';
+                                    mapping[key].x = r.x;
+                                    mapping[key].y = r.y;
+                                }
+                            }
+                            this.drawAllRegions();
+                        }
+                        return;
+                    }
+
+                    // 绘制预览中
+                    if (this.isDrawing && this.drawSide === side) {
+                        const ctx = overlay.getContext('2d');
+                        ctx.clearRect(0, 0, overlay.width, overlay.height);
+                        this.drawAllRegions();
+
+                        const sx = this.drawStart.x;
+                        const sy = this.drawStart.y;
+                        const w = x - sx;
+                        const h = y - sy;
+
+                        ctx.strokeStyle = side === 'A' ? '#3b82f6' : '#10b981';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([5, 5]);
+                        ctx.strokeRect(sx, sy, w, h);
+                        ctx.setLineDash([]);
+                        ctx.fillStyle = side === 'A' ? 'rgba(59,130,246,0.1)' : 'rgba(16,185,129,0.1)';
+                        ctx.fillRect(sx, sy, w, h);
+                        return;
+                    }
+
+                    // 空闲状态：更新鼠标样式
+                    const hovered = this.getRegionAt(side, x, y);
+                    if (hovered && hovered.page === pdf.currentPage) {
+                        const selId = this.selectedRegion[side];
+                        if (selId && hovered.id === selId) {
+                            const handle = this.getResizeHandle(hovered, x, y);
+                            overlay.style.cursor = handle ? handle.cursor : 'move';
+                        } else {
+                            overlay.style.cursor = 'pointer';
+                        }
+                    } else {
+                        overlay.style.cursor = 'crosshair';
+                    }
+                });
+
+                overlay.addEventListener('mouseup', (e) => {
+                    // 结束 resize
+                    if (this.isResizing && this.resizeInfo.side === side) {
+                        this.isResizing = false;
+                        this.resizeInfo = { side: null, region: null, direction: '', startX: 0, startY: 0, origX: 0, origY: 0, origW: 0, origH: 0 };
+                        this.drawAllRegions();
+                        return;
+                    }
+
+                    // 结束拖拽
+                    if (this.isDraggingRegion && this.dragSide === side) {
+                        this.isDraggingRegion = false;
+                        this.dragSide = null;
+                        return;
+                    }
+
+                    // 结束绘制
+                    if (!this.isDrawing || this.drawSide !== side) return;
+                    this.isDrawing = false;
+
+                    const rect = overlay.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+
+                    const rx = Math.min(this.drawStart.x, x);
+                    const ry = Math.min(this.drawStart.y, y);
+                    const rw = Math.abs(x - this.drawStart.x);
+                    const rh = Math.abs(y - this.drawStart.y);
+
+                    if (rw < 10 || rh < 10) {
+                        this.drawAllRegions();
+                        return;
+                    }
+
+                    const newRegion = {
+                        id: 'R' + this.nextRegionId++,
+                        page: pdf.currentPage,
+                        x: Math.round(rx),
+                        y: Math.round(ry),
+                        width: Math.round(rw),
+                        height: Math.round(rh),
+                        mappingId: null,
+                    };
+
+                    pdf.regions.push(newRegion);
+                    pdf.pending = newRegion;
+                    this.selectedRegion[side] = null; // 新建后不自动选中，避免遮挡
+
+                    this.drawAllRegions();
+                    this.updateStatus();
+                    this.tryAutoPair();
+                });
+
+                overlay.addEventListener('mouseleave', () => {
+                    if (this.isDrawing && this.drawSide === side) {
+                        this.isDrawing = false;
+                        this.drawAllRegions();
+                    }
+                    if (this.isResizing && this.resizeInfo.side === side) {
+                        this.isResizing = false;
+                        this.resizeInfo = { side: null, region: null, direction: '', startX: 0, startY: 0, origX: 0, origY: 0, origW: 0, origH: 0 };
+                        this.drawAllRegions();
+                    }
+                    if (this.isDraggingRegion && this.dragSide === side) {
+                        this.isDraggingRegion = false;
+                        this.dragSide = null;
+                    }
+                });
+            },
+
+            handleResize(x, y) {
+                const info = this.resizeInfo;
+                const r = info.region;
+                const dx = x - info.startX;
+                const dy = y - info.startY;
+                const minSize = 10;
+
+                let nx = info.origX, ny = info.origY, nw = info.origW, nh = info.origH;
+
+                switch (info.direction) {
+                    case 'se':
+                        nw = Math.max(minSize, info.origW + dx);
+                        nh = Math.max(minSize, info.origH + dy);
+                        break;
+                    case 'nw':
+                        nw = Math.max(minSize, info.origW - dx);
+                        nh = Math.max(minSize, info.origH - dy);
+                        if (nw > minSize) nx = info.origX + dx;
+                        if (nh > minSize) ny = info.origY + dy;
+                        break;
+                    case 'ne':
+                        nw = Math.max(minSize, info.origW + dx);
+                        nh = Math.max(minSize, info.origH - dy);
+                        if (nh > minSize) ny = info.origY + dy;
+                        break;
+                    case 'sw':
+                        nw = Math.max(minSize, info.origW - dx);
+                        nh = Math.max(minSize, info.origH + dy);
+                        if (nw > minSize) nx = info.origX + dx;
+                        break;
+                    case 'n':
+                        nh = Math.max(minSize, info.origH - dy);
+                        if (nh > minSize) ny = info.origY + dy;
+                        break;
+                    case 's':
+                        nh = Math.max(minSize, info.origH + dy);
+                        break;
+                    case 'w':
+                        nw = Math.max(minSize, info.origW - dx);
+                        if (nw > minSize) nx = info.origX + dx;
+                        break;
+                    case 'e':
+                        nw = Math.max(minSize, info.origW + dx);
+                        break;
+                }
+
+                r.x = Math.round(Math.max(0, nx));
+                r.y = Math.round(Math.max(0, ny));
+                r.width = Math.round(nw);
+                r.height = Math.round(nh);
+
+                // 同步更新映射数据
+                if (r.mappingId) {
+                    const mapping = this.mappings.find(m => m.id === r.mappingId);
+                    if (mapping) {
+                        const key = info.side === 'A' ? 'source' : 'target';
+                        mapping[key].x = r.x;
+                        mapping[key].y = r.y;
+                        mapping[key].width = r.width;
+                        mapping[key].height = r.height;
+                    }
+                }
+            },
+
+            getRegionAt(side, x, y) {
+                const pdf = side === 'A' ? this.pdfA : this.pdfB;
+                for (let i = pdf.regions.length - 1; i >= 0; i--) {
+                    const r = pdf.regions[i];
+                    if (r.page !== pdf.currentPage) continue;
+                    if (x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height) {
+                        return r;
+                    }
+                }
+                return null;
+            },
+
+            tryAutoPair() {
+                if (this.pdfA.pending && this.pdfB.pending) {
+                    this.openMappingModal(this.pdfA.pending, this.pdfB.pending);
+                }
+            },
+
+            drawAllRegions() {
+                this.drawRegionsForSide('A');
+                this.drawRegionsForSide('B');
+            },
+
+            drawRegionsForSide(side) {
+                const pdf = side === 'A' ? this.pdfA : this.pdfB;
+                const overlay = side === 'A' ? this.elements.overlayA : this.elements.overlayB;
+                if (!overlay) return;
+
+                const ctx = overlay.getContext('2d');
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+                pdf.regions.forEach(region => {
+                    if (region.page !== pdf.currentPage) return;
+
+                    const isPending = pdf.pending && pdf.pending.id === region.id;
+                    const isMapped = !!region.mappingId;
+                    const isHighlighted = this.highlightedMappingId && region.mappingId === this.highlightedMappingId;
+                    const isSelected = this.selectedRegion[side] === region.id;
+
+                    let color, glow, fillAlpha, lineWidth;
+
+                    if (isPending) {
+                        color = '#f59e0b';
+                        glow = 'rgba(245, 158, 11, 0.3)';
+                        fillAlpha = 0.12;
+                        lineWidth = 2.5;
+                    } else if (isMapped) {
+                        color = isHighlighted ? '#7c3aed' : '#8b5cf6';
+                        glow = isHighlighted ? 'rgba(124, 58, 237, 0.35)' : 'rgba(139, 92, 246, 0.2)';
+                        fillAlpha = isHighlighted ? 0.15 : 0.08;
+                        lineWidth = isHighlighted ? 3 : 2;
+                    } else {
+                        color = side === 'A' ? '#3b82f6' : '#10b981';
+                        glow = side === 'A' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)';
+                        fillAlpha = 0.08;
+                        lineWidth = 2;
+                    }
+
+                    ctx.save();
+                    ctx.shadowColor = glow;
+                    ctx.shadowBlur = isHighlighted ? 12 : 6;
+
+                    if (isPending) ctx.fillStyle = 'rgba(245, 158, 11, ' + fillAlpha + ')';
+                    else if (isMapped) ctx.fillStyle = isHighlighted ? 'rgba(124, 58, 237, ' + fillAlpha + ')' : 'rgba(139, 92, 246, ' + fillAlpha + ')';
+                    else ctx.fillStyle = side === 'A' ? `rgba(59, 130, 246, ${fillAlpha})` : `rgba(16, 185, 129, ${fillAlpha})`;
+                    ctx.fillRect(region.x, region.y, region.width, region.height);
+
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = lineWidth;
+                    ctx.strokeRect(region.x, region.y, region.width, region.height);
+                    ctx.restore();
+
+                    // 选中高亮边框
+                    if (isSelected) {
+                        ctx.save();
+                        ctx.strokeStyle = '#f59e0b';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([4, 4]);
+                        ctx.strokeRect(region.x - 3, region.y - 3, region.width + 6, region.height + 6);
+                        ctx.setLineDash([]);
+                        ctx.restore();
+
+                        // 绘制8个调整手柄
+                        const hs = this.HANDLE_SIZE;
+                        const cx = region.x + region.width / 2;
+                        const cy = region.y + region.height / 2;
+                        const rx = region.x + region.width;
+                        const by = region.y + region.height;
+                        const handles = [
+                            { x: region.x, y: region.y },
+                            { x: rx, y: region.y },
+                            { x: region.x, y: by },
+                            { x: rx, y: by },
+                            { x: cx, y: region.y },
+                            { x: cx, y: by },
+                            { x: region.x, y: cy },
+                            { x: rx, y: cy },
+                        ];
+                        ctx.fillStyle = '#ffffff';
+                        ctx.strokeStyle = '#f59e0b';
+                        ctx.lineWidth = 1.5;
+                        handles.forEach(h => {
+                            ctx.beginPath();
+                            ctx.rect(h.x - hs / 2, h.y - hs / 2, hs, hs);
+                            ctx.fill();
+                            ctx.stroke();
+                        });
+                    }
+
+                    let label = '';
+                    if (isPending) {
+                        label = side === 'A' ? '待配对源' : '待配对目标';
+                    } else if (isMapped) {
+                        const mapping = this.mappings.find(m => m.id === region.mappingId);
+                        if (mapping) label = mapping.fieldName;
+                    } else {
+                        label = side === 'A' ? '源区域' : '目标区域';
+                    }
+
+                    if (label) {
+                        ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
+                        const tw = ctx.measureText(label).width + 12;
+                        const th = 22;
+                        const tx = region.x;
+                        const ty = Math.max(0, region.y - th + 2);
+
+                        ctx.fillStyle = color;
+                        ctx.fillRect(tx, ty, tw, th);
+                        ctx.fillStyle = 'white';
+                        ctx.fillText(label, tx + 6, ty + 16);
+                    }
+                });
+            },
+
+            openMappingModal(sourceRegion, targetRegion) {
+                this.editingMappingId = null;
+                this.tempSourceRegion = sourceRegion;
+                this.tempTargetRegion = targetRegion;
+
+                document.getElementById('modalSourceInfo').innerHTML =
+                    `第 ${sourceRegion.page} 页<br>位置: (${sourceRegion.x}, ${sourceRegion.y})<br>尺寸: ${sourceRegion.width} × ${sourceRegion.height}`;
+                document.getElementById('modalTargetInfo').innerHTML =
+                    `第 ${targetRegion.page} 页<br>位置: (${targetRegion.x}, ${targetRegion.y})<br>尺寸: ${targetRegion.width} × ${targetRegion.height}`;
+
+                document.getElementById('fieldName').value = '';
+                document.getElementById('dataType').value = 'text';
+                document.getElementById('transformRule').value = '';
+                document.getElementById('fieldRemark').value = '';
+
+                this.elements.mappingModal.classList.add('show');
+            },
+
+            openEditModal(mapping) {
+                this.editingMappingId = mapping.id;
+                this.tempSourceRegion = mapping.source;
+                this.tempTargetRegion = mapping.target;
+
+                document.getElementById('modalSourceInfo').innerHTML =
+                    `第 ${mapping.source.page} 页<br>位置: (${mapping.source.x}, ${mapping.source.y})<br>尺寸: ${mapping.source.width} × ${mapping.source.height}`;
+                document.getElementById('modalTargetInfo').innerHTML =
+                    `第 ${mapping.target.page} 页<br>位置: (${mapping.target.x}, ${mapping.target.y})<br>尺寸: ${mapping.target.width} × ${mapping.target.height}`;
+
+                document.getElementById('fieldName').value = mapping.fieldName;
+                document.getElementById('dataType').value = mapping.dataType;
+                document.getElementById('transformRule').value = mapping.transformRule || '';
+                document.getElementById('fieldRemark').value = mapping.remark || '';
+
+                this.elements.mappingModal.classList.add('show');
+            },
+
+            closeModal() {
+                this.elements.mappingModal.classList.remove('show');
+                this.editingMappingId = null;
+                this.tempSourceRegion = null;
+                this.tempTargetRegion = null;
+            },
+
+            saveMapping() {
+                const fieldName = document.getElementById('fieldName').value.trim();
+                if (!fieldName) {
+                    this.showToast('请填写字段名称', 'error');
+                    return;
+                }
+
+                const dataType = document.getElementById('dataType').value;
+                const transformRule = document.getElementById('transformRule').value.trim();
+                const remark = document.getElementById('fieldRemark').value.trim();
+
+                if (this.editingMappingId) {
+                    const mapping = this.mappings.find(m => m.id === this.editingMappingId);
+                    if (mapping) {
+                        mapping.fieldName = fieldName;
+                        mapping.dataType = dataType;
+                        mapping.transformRule = transformRule;
+                        mapping.remark = remark;
+                    }
+                    this.showToast('映射已更新');
+                } else {
+                    const mapping = {
+                        id: 'M' + this.nextMappingId++,
+                        fieldName,
+                        dataType,
+                        transformRule,
+                        remark,
+                        source: { ...this.tempSourceRegion },
+                        target: { ...this.tempTargetRegion },
+                    };
+                    this.mappings.push(mapping);
+
+                    const sRegion = this.pdfA.regions.find(r => r.id === this.tempSourceRegion.id);
+                    const tRegion = this.pdfB.regions.find(r => r.id === this.tempTargetRegion.id);
+                    if (sRegion) sRegion.mappingId = mapping.id;
+                    if (tRegion) tRegion.mappingId = mapping.id;
+
+                    if (this.pdfA.pending && this.pdfA.pending.id === this.tempSourceRegion.id) {
+                        this.pdfA.pending = null;
+                    }
+                    if (this.pdfB.pending && this.pdfB.pending.id === this.tempTargetRegion.id) {
+                        this.pdfB.pending = null;
+                    }
+
+                    this.showToast('映射创建成功');
+                }
+
+                this.closeModal();
+                this.drawAllRegions();
+                this.renderMappingList();
+                this.updateStatus();
+            },
+
+            renderMappingList() {
+                const list = this.elements.mappingList;
+                const count = this.elements.mappingCount;
+
+                count.textContent = this.mappings.length;
+
+                if (this.mappings.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                <line x1="8" y1="12" x2="16" y2="12"/>
+                                <line x1="12" y1="8" x2="12" y2="16"/>
+                            </svg>
+                            <p>尚未创建映射</p>
+                            <p class="sub">在左侧和右侧分别框选区域以建立映射</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                list.innerHTML = this.mappings.map((m, idx) => `
+                    <div class="mapping-item ${this.highlightedMappingId === m.id ? 'active' : ''}" data-id="${m.id}">
+                        <div class="mapping-item-header">
+                            <div class="mapping-field-name">${idx + 1}. ${this.escapeHtml(m.fieldName)}</div>
+                            <div class="mapping-actions">
+                                <button class="icon-btn" onclick="App.editMapping('${m.id}')" title="编辑">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                </button>
+                                <button class="icon-btn delete" onclick="App.deleteMapping('${m.id}')" title="删除">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6"/>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mapping-preview">
+                            <div class="mapping-region-preview source-preview">
+                                P${m.source.page} (${m.source.x},${m.source.y}) ${m.source.width}×${m.source.height}
+                            </div>
+                            <span class="mapping-arrow">→</span>
+                            <div class="mapping-region-preview target-preview">
+                                P${m.target.page} (${m.target.x},${m.target.y}) ${m.target.width}×${m.target.height}
+                            </div>
+                        </div>
+                        <div class="mapping-meta">
+                            <span class="mapping-tag">${this.getDataTypeLabel(m.dataType)}</span>
+                            ${m.transformRule ? `<span class="mapping-tag">规则: ${this.escapeHtml(m.transformRule)}</span>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+                list.querySelectorAll('.mapping-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        if (e.target.closest('.icon-btn')) return;
+                        const id = item.dataset.id;
+                        this.highlightMapping(id);
+                    });
+                });
+            },
+
+            getDataTypeLabel(type) {
+                const map = {
+                    text: '文本', number: '数字', date: '日期',
+                    currency: '金额', phone: '电话', email: '邮箱',
+                    idcard: '身份证', address: '地址'
+                };
+                return map[type] || type;
+            },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+
+            editMapping(id) {
+                const mapping = this.mappings.find(m => m.id === id);
+                if (mapping) this.openEditModal(mapping);
+            },
+
+            deleteMapping(id, askConfirm = true) {
+                if (askConfirm && !confirm('确定要删除此映射吗？')) return;
+
+                const idx = this.mappings.findIndex(m => m.id === id);
+                if (idx === -1) return;
+
+                const sRegion = this.pdfA.regions.find(r => r.mappingId === id);
+                const tRegion = this.pdfB.regions.find(r => r.mappingId === id);
+                if (sRegion) sRegion.mappingId = null;
+                if (tRegion) tRegion.mappingId = null;
+
+                this.mappings.splice(idx, 1);
+                if (this.highlightedMappingId === id) this.highlightedMappingId = null;
+                this.renderMappingList();
+                this.drawAllRegions();
+                this.updateStatus();
+                if (askConfirm) this.showToast('映射已删除');
+            },
+
+            highlightMapping(id) {
+                this.highlightedMappingId = id;
+                this.renderMappingList();
+                this.drawAllRegions();
+
+                const mapping = this.mappings.find(m => m.id === id);
+                if (mapping) {
+                    if (this.pdfA.doc && mapping.source.page !== this.pdfA.currentPage) {
+                        this.elements.pageSelectA.value = mapping.source.page;
+                        this.gotoPage('A', mapping.source.page);
+                    }
+                    if (this.pdfB.doc && mapping.target.page !== this.pdfB.currentPage) {
+                        this.elements.pageSelectB.value = mapping.target.page;
+                        this.gotoPage('B', mapping.target.page);
+                    }
+                }
+            },
+
+            updateStatus() {
+                const pA = this.pdfA.pending;
+                const pB = this.pdfB.pending;
+                const float = this.elements.statusFloat;
+                const text = this.elements.statusText;
+
+                if (pA && pB) {
+                    text.textContent = '两边区域已框选，正在编辑映射...';
+                    float.classList.add('show');
+                } else if (pA) {
+                    text.textContent = '已在源文档框选区域，请在目标模板上框选对应位置';
+                    float.classList.add('show');
+                } else if (pB) {
+                    text.textContent = '已在目标模板框选区域，请在源文档上框选对应位置';
+                    float.classList.add('show');
+                } else {
+                    float.classList.remove('show');
+                }
+            },
+
+            exportConfig() {
+                if (this.mappings.length === 0) {
+                    this.showToast('没有可导出的映射', 'error');
+                    return;
+                }
+
+                const config = {
+                    version: '1.0',
+                    exportTime: new Date().toISOString(),
+                    sourcePDF: {
+                        fileName: this.pdfA.fileName,
+                        totalPages: this.pdfA.doc ? this.pdfA.doc.numPages : 0,
+                    },
+                    targetPDF: {
+                        fileName: this.pdfB.fileName,
+                        totalPages: this.pdfB.doc ? this.pdfB.doc.numPages : 0,
+                    },
+                    mappings: this.mappings.map(m => ({
+                        id: m.id,
+                        fieldName: m.fieldName,
+                        dataType: m.dataType,
+                        transformRule: m.transformRule,
+                        remark: m.remark,
+                        source: {
+                            page: m.source.page,
+                            x: m.source.x,
+                            y: m.source.y,
+                            width: m.source.width,
+                            height: m.source.height,
+                        },
+                        target: {
+                            page: m.target.page,
+                            x: m.target.x,
+                            y: m.target.y,
+                            width: m.target.width,
+                            height: m.target.height,
+                        },
+                    })),
+                };
+
+                const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `pdf-mapping-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+
+                this.showToast(`已导出 ${this.mappings.length} 条映射配置`);
+            },
+
+            toggleSidebar() {
+                this.elements.mappingSidebar.classList.toggle('collapsed');
+                const btn = document.getElementById('sidebarToggle');
+                const isCollapsed = this.elements.mappingSidebar.classList.contains('collapsed');
+                btn.innerHTML = isCollapsed
+                    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
+                    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+            },
+
+            showToast(msg, type = 'success') {
+                const toast = this.elements.toast;
+                const toastMsg = this.elements.toastMsg;
+
+                toastMsg.textContent = msg;
+                toast.className = 'toast show ' + type;
+
+                clearTimeout(this._toastTimer);
+                this._toastTimer = setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 2500);
+            },
+        };
+
+        document.addEventListener('DOMContentLoaded', () => App.init());
+    </script>
+</body>
+</html>
