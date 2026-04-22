@@ -107,6 +107,8 @@
         .settings-bar {
             display: flex;
             justify-content: flex-end;
+            align-items: center;
+            gap: 32px;
             margin-bottom: 24px;
             padding: 16px 20px;
             background: var(--bg-secondary);
@@ -140,6 +142,7 @@
             cursor: pointer;
             transition: var(--transition);
             min-width: 160px;
+            height: 32px;
         }
 
         select:hover {
@@ -502,6 +505,67 @@
             font-family: inherit;
             font-size: 0.7rem;
         }
+
+        .mode-toggle {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .mode-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 4px;
+            transition: var(--transition);
+            position: relative;
+            min-width: 100px;
+            height: 32px;
+        }
+
+        .toggle-label:hover {
+            border-color: var(--accent);
+        }
+
+        .toggle-text {
+            flex: 1;
+            text-align: center;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: var(--transition);
+            z-index: 1;
+        }
+
+        .mode-toggle input:checked + .toggle-label .encode-text {
+            color: var(--text-muted);
+        }
+
+        .mode-toggle input:checked + .toggle-label .decode-text {
+            color: var(--text-primary);
+        }
+
+        .mode-toggle input:not(:checked) + .toggle-label .encode-text {
+            color: var(--text-primary);
+        }
+
+        .mode-toggle input:not(:checked) + .toggle-label .decode-text {
+            color: var(--text-muted);
+        }
+
+        .mode-toggle input:checked + .toggle-label {
+            background: var(--bg-card);
+        }
     </style>
 </head>
 <body>
@@ -522,6 +586,16 @@
         </header>
 
         <div class="settings-bar">
+            <div class="setting-item">
+                <span class="setting-label">模式：</span>
+                <div class="mode-toggle">
+                    <input type="checkbox" id="modeToggle">
+                    <label for="modeToggle" class="toggle-label">
+                        <span class="toggle-text encode-text">编码</span>
+                        <span class="toggle-text decode-text">解码</span>
+                    </label>
+                </div>
+            </div>
             <div class="setting-item">
                 <span class="setting-label">默认转换语言：</span>
                 <div class="select-wrapper">
@@ -668,8 +742,11 @@
     <script>
         const pathInput = document.getElementById('pathInput');
         const defaultLangSelect = document.getElementById('defaultLang');
+        const modeToggle = document.getElementById('modeToggle');
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toastMessage');
+
+        let isDecodeMode = false;
 
         // 从localStorage加载默认语言设置
         const savedDefaultLang = localStorage.getItem('pathConverter_defaultLang');
@@ -677,10 +754,158 @@
             defaultLangSelect.value = savedDefaultLang;
         }
 
+        // 从localStorage加载模式设置
+        const savedMode = localStorage.getItem('pathConverter_mode');
+        if (savedMode === 'decode') {
+            modeToggle.checked = true;
+            isDecodeMode = true;
+            updateInputPlaceholder();
+        }
+
         // 保存默认语言设置
         defaultLangSelect.addEventListener('change', () => {
             localStorage.setItem('pathConverter_defaultLang', defaultLangSelect.value);
         });
+
+        // 模式切换
+        modeToggle.addEventListener('change', () => {
+            isDecodeMode = modeToggle.checked;
+            localStorage.setItem('pathConverter_mode', isDecodeMode ? 'decode' : 'encode');
+            updateInputPlaceholder();
+            updateConversions();
+        });
+
+        function updateInputPlaceholder() {
+            if (isDecodeMode) {
+                pathInput.placeholder = '在此粘贴转义或编码的路径，例如：\nC:\\\\Users\\\\Admin\n/mnt/c/Users/Admin\n~/Documents';
+            } else {
+                pathInput.placeholder = '在此粘贴或输入路径，例如：\nC:\\Users\\Administrator\\Documents\n/home/user/projects\n~/Desktop/file.txt';
+            }
+        }
+
+        // 解码路径函数
+        function decodePath(input) {
+            if (!input || !input.trim()) {
+                return { windows: '', linux: '', macos: '', git: '' };
+            }
+
+            let normalized = input.trim();
+            let decoded = normalized;
+            let hasEscapedBackslash = normalized.includes('\\\\');
+            let hasUrlEncoded = false;
+
+            if (hasEscapedBackslash) {
+                decoded = decoded.replace(/\\\\/g, '\\');
+            }
+
+            try {
+                const urlDecoded = decodeURIComponent(decoded);
+                if (urlDecoded !== decoded) {
+                    hasUrlEncoded = true;
+                    decoded = urlDecoded;
+                }
+            } catch (e) {}
+
+            if (!hasEscapedBackslash && !hasUrlEncoded) {
+                return {
+                    windows: '输入的路径未检测到转码，无需解码',
+                    linux: '输入的路径未检测到转码，无需解码',
+                    macos: '输入的路径未检测到转码，无需解码',
+                    git: '输入的路径未检测到转码，无需解码'
+                };
+            }
+
+            let isWindows = /^[A-Za-z]:[/\\]/.test(decoded);
+            let isUnix = decoded.startsWith('/') && !isWindows;
+
+            if (isWindows) {
+                return {
+                    windows: decoded,
+                    linux: convertToLinux(decoded),
+                    macos: convertToMacos(decoded),
+                    git: convertToGit(decoded)
+                };
+            }
+
+            if (isUnix) {
+                return {
+                    windows: convertToWindowsFromUnix(decoded),
+                    linux: decoded,
+                    macos: convertToMacos(decoded),
+                    git: convertToGit(decoded)
+                };
+            }
+
+            return {
+                windows: decoded,
+                linux: decoded,
+                macos: decoded,
+                git: decoded
+            };
+        }
+
+        function convertToLinux(windowsPath) {
+            const normalized = windowsPath.replace(/\\\\/g, '\\');
+            const parts = normalized.split('\\');
+            const drive = parts[0].replace(':', '').toLowerCase();
+            const rest = parts.slice(1).join('/');
+            return `/mnt/${drive}/${rest}`;
+        }
+
+        function convertToMacos(windowsPath) {
+            const normalized = windowsPath.replace(/\\\\/g, '\\');
+            const parts = normalized.split('\\');
+            const drive = parts[0].replace(':', '').toLowerCase();
+            const rest = parts.slice(1).join('/');
+            return `/Volumes/${drive}/${rest}`;
+        }
+
+        function convertToGit(windowsPath) {
+            const normalized = windowsPath.replace(/\\\\/g, '\\');
+            const parts = normalized.split('\\');
+            const drive = parts[0].replace(':', '').toLowerCase();
+            const rest = parts.slice(1).join('/');
+            return `/${drive}/${rest}`;
+        }
+
+        function convertToWindowsFromUnix(unixPath) {
+            let pathPart = unixPath.replace(/^\/+/, '');
+            
+            let userMatch = pathPart.match(/^(home|Users|u)\//);
+            if (userMatch) {
+                const userIndex = pathPart.indexOf('/');
+                if (userIndex > -1) {
+                    const userName = pathPart.substring(0, userIndex);
+                    const restPath = pathPart.substring(userIndex + 1);
+                    if (userMatch[1] === 'home' || userMatch[1] === 'u') {
+                        return `C:\\Users\\${userName}\\${restPath.replace(/\//g, '\\')}`;
+                    } else if (userMatch[1] === 'Users') {
+                        return `C:\\Users\\${userName}\\${restPath.replace(/\//g, '\\')}`;
+                    }
+                }
+            }
+
+            if (pathPart.startsWith('mnt/')) {
+                pathPart = pathPart.replace('mnt/', '');
+                const parts = pathPart.split('/');
+                const drive = parts[0];
+                const rest = parts.slice(1).join('\\');
+                return `${drive.toUpperCase()}:\\${rest}`;
+            }
+
+            if (pathPart.startsWith('Volumes/')) {
+                pathPart = pathPart.replace('Volumes/', '');
+                const parts = pathPart.split('/');
+                const drive = parts[0];
+                const rest = parts.slice(1).join('\\');
+                return `${drive.toUpperCase()}:\\${rest}`;
+            }
+
+            const parts = pathPart.split('/');
+            const firstPart = parts[0] || 'home';
+            const restParts = parts.slice(1);
+            return `C:\\${firstPart}\\${restParts.join('\\')}`;
+        }
 
         // 显示toast提示
         function showToast(message) {
@@ -843,7 +1068,13 @@
         // 更新转换结果
         function updateConversions() {
             const input = pathInput.value;
-            const conversions = convertPath(input);
+            let conversions;
+            
+            if (isDecodeMode) {
+                conversions = decodePath(input);
+            } else {
+                conversions = convertPath(input);
+            }
             
             const windowsEl = document.getElementById('windows');
             const linuxEl = document.getElementById('linux');
@@ -865,7 +1096,6 @@
             setOutput(macosEl, conversions.macos);
             setOutput(gitEl, conversions.git);
             
-            // 如果有默认语言且输入不为空，自动复制
             const defaultLang = defaultLangSelect.value;
             if (defaultLang && input.trim()) {
                 const targetMap = {
@@ -875,7 +1105,7 @@
                     git: conversions.git
                 };
                 const targetPath = targetMap[defaultLang];
-                if (targetPath) {
+                if (targetPath && !targetPath.includes('无需解码')) {
                     navigator.clipboard.writeText(targetPath).then(() => {
                         showToast(`已自动复制 ${document.querySelector(`[data-target="${defaultLang}"]`).closest('.output-card').querySelector('.card-name').textContent} 路径！`);
                     }).catch(() => {});
